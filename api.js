@@ -186,6 +186,16 @@ window.ShopeeCoinCollector = (function () {
       return '';
     }
 
+    formatDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      const hh = String(dateObj.getHours()).padStart(2, '0');
+      const mm = String(dateObj.getMinutes()).padStart(2, '0');
+      const ss = String(dateObj.getSeconds()).padStart(2, '0');
+      return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+    }
+
     // Try fetching via Shopee's internal REST API endpoints
     async fetchViaAPI(progressCallback) {
       this.isCollecting = true;
