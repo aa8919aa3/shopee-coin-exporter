@@ -176,6 +176,16 @@ window.ShopeeCoinCollector = (function () {
       return result;
     }
 
+    extractFirstText(el, selectorList) {
+      for (const selector of selectorList) {
+        const target = el.querySelector(selector);
+        if (!target) continue;
+        const text = (target.innerText || target.textContent || '').trim();
+        if (text) return text;
+      }
+      return '';
+    }
+
     // Try fetching via Shopee's internal REST API endpoints
     async fetchViaAPI(progressCallback) {
       this.isCollecting = true;
@@ -274,33 +284,114 @@ window.ShopeeCoinCollector = (function () {
 
     // DOM Scraper Fallback
     scrapeFromDOM() {
-      const items = document.querySelectorAll('.coin-history-item, .shopee-coin-log-item, tr.coin-row, div[class*="coin-history"], div[class*="CoinHistory"]');
+      const itemSelectors = [
+        'div[data-sqe="coin-history-item"]',
+        '.coin-history-item',
+        '.shopee-coin-log-item',
+        '.coin-history-list > div',
+        'div[class*="coin"][class*="history"][class*="item"]',
+        'div[class*="transaction"][class*="item"]',
+        'div[class*="record"][class*="item"]',
+        'tr.coin-row'
+      ];
+
+      const itemSet = new Set();
+      itemSelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((el) => itemSet.add(el));
+      });
+
+      const items = Array.from(itemSet).filter((el) => {
+        const txt = (el.innerText || '').trim();
+        if (!txt) return false;
+        const hasAmount = /[+-]\s*\d+(?:[.,]\d+)?/.test(txt);
+        const hasCoinText = /(蝦幣|coin)/i.test(txt);
+        const hasDate = /\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2}|\d{1,2}:\d{2}/.test(txt);
+        return hasAmount || (hasCoinText && hasDate);
+      });
+
       let countBefore = this.collectedRecords.size;
 
       items.forEach((el, index) => {
         try {
-          const titleEl = el.querySelector('.title, .description, [class*="title"], [class*="desc"]');
-          const dateEl = el.querySelector('.date, .time, [class*="date"], [class*="time"]');
-          const amountEl = el.querySelector('.amount, .coins, [class*="amount"], [class*="coin"]');
+          let title = this.extractFirstText(el, [
+            '[data-sqe="coin-history-item-title"]',
+            '[class*="title"]',
+            '[class*="description"]',
+            '[class*="desc"]',
+            '[class*="reason"]',
+            'strong'
+          ]);
 
-          const title = titleEl ? titleEl.innerText.trim() : `紀錄 ${index + 1}`;
-          const dateText = dateEl ? dateEl.innerText.trim() : new Date().toLocaleDateString();
-          const amountText = amountEl ? amountEl.innerText.trim() : '0';
+          let dateText = this.extractFirstText(el, [
+            '[data-sqe="coin-history-item-time"]',
+            'time',
+            '[class*="date"]',
+            '[class*="time"]',
+            '[class*="create"]'
+          ]);
 
-          const isSpend = amountText.includes('-') || amountText.includes('使用') || title.includes('折抵');
-          const cleanAmount = Math.abs(parseFloat(amountText.replace(/[^\d.-]/g, '')) || 0);
+          let amountText = this.extractFirstText(el, [
+            '[data-sqe="coin-history-item-amount"]',
+            '[class*="amount"]',
+            '[class*="coin-change"]',
+            '[class*="value"]',
+            '[class*="num"]'
+          ]);
 
-          const recId = `dom_${dateText}_${title}_${cleanAmount}`;
+          let orderSn = this.extractFirstText(el, [
+            '[class*="order"]',
+            '[class*="sn"]',
+            '[data-sqe*="order"]'
+          ]);
+
+          const rawText = (el.innerText || '').trim();
+          const lines = rawText.split('\n').map(s => s.trim()).filter(Boolean);
+
+          if (!amountText) {
+            amountText = lines.find(t => /[+-]\s*\d+(?:[.,]\d+)?/.test(t)) || '';
+          }
+
+          if (!dateText) {
+            dateText = lines.find(t => /\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2}|\d{1,2}:\d{2}/.test(t)) || '';
+          }
+
+          if (!title) {
+            title = lines.find(t => !/[+-]\s*\d+(?:[.,]\d+)?/.test(t) && !/\d{4}[\/.-]\d{1,2}[\/.-]\d{1,2}|\d{1,2}:\d{2}/.test(t)) || `紀錄 ${index + 1}`;
+          }
+
+          const fallbackOrderMatch = rawText.match(/(?:訂單(?:編號)?|Order(?:\s*SN)?)[：:\s#-]*([A-Za-z0-9-]{8,})/i);
+          if ((!orderSn || orderSn.length < 6) && fallbackOrderMatch) {
+            orderSn = fallbackOrderMatch[1];
+          }
+
+          const amountMatch = amountText.match(/-?\d+(?:[.,]\d+)?/);
+          const cleanAmount = Math.abs(parseFloat((amountMatch ? amountMatch[0] : '0').replace(/,/g, '')) || 0);
+          if (cleanAmount <= 0 && !/(蝦幣|coin)/i.test(rawText)) return;
+
+          const isExpired = amountText.includes('過期') || title.includes('過期') || title.includes('失效') || rawText.includes('過期');
+          const isSpend = !isExpired && (
+            amountText.includes('-') ||
+            amountText.includes('使用') ||
+            title.includes('折抵') ||
+            title.includes('使用') ||
+            title.includes('扣除')
+          );
+
+          const type = isExpired ? 'expired' : (isSpend ? 'spend' : 'gain');
+          const parsedDate = this.parseTimestamp(dateText);
+          const dateStr = this.formatDate(parsedDate);
+          const recId = `dom_${parsedDate.getTime()}_${title}_${cleanAmount}_${type}`;
 
           if (!this.collectedRecords.has(recId)) {
             const record = new CoinRecord({
               id: recId,
-              timestamp: new Date().toISOString(),
-              dateStr: dateText,
+              timestamp: parsedDate.toISOString(),
+              dateStr: dateStr,
               title: title,
-              type: isSpend ? 'spend' : 'gain',
+              type: type,
               amount: cleanAmount,
-              displayAmount: isSpend ? -cleanAmount : cleanAmount
+              displayAmount: type === 'spend' || type === 'expired' ? -cleanAmount : cleanAmount,
+              orderSn: orderSn || '-'
             });
             this.collectedRecords.set(recId, record);
           }
