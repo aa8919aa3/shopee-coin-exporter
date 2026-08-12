@@ -63,7 +63,7 @@ window.ShopeeCoinCollector = (function () {
     normalizeRawLogItem(item) {
       // Shopee API returns amount usually in coins or coin units
       // Coin amount field names in Shopee API can be: coin, amount, coins, coin_amount
-      let rawAmount = item.coin || item.amount || item.coins || item.coin_amount || 0;
+      let rawAmount = item.coin ?? item.amount ?? item.coins ?? item.coin_amount ?? 0;
       
       // If Shopee returns amount in cents (e.g. 100 = 1 coin), handle appropriately if needed
       // Normally Shopee coin is integer representation or decimal
@@ -80,14 +80,14 @@ window.ShopeeCoinCollector = (function () {
       let absAmount = Math.abs(coinAmount);
 
       // Parse timestamp
-      let ts = item.ctime || item.create_time || item.timestamp || item.mtime;
-      let dateObj = ts ? new Date(ts * 1000 > 1e12 ? ts : ts * 1000) : new Date();
+      let ts = item.ctime ?? item.create_time ?? item.timestamp ?? item.mtime;
+      let dateObj = this.parseTimestamp(ts);
 
       // Expiry Date
       let expStr = '-';
       if (item.expiry_time || item.expire_time) {
-        let expTs = item.expiry_time || item.expire_time;
-        let expDate = new Date(expTs * 1000 > 1e12 ? expTs : expTs * 1000);
+        let expTs = item.expiry_time ?? item.expire_time;
+        let expDate = this.parseTimestamp(expTs);
         expStr = `${expDate.getFullYear()}-${String(expDate.getMonth()+1).padStart(2,'0')}-${String(expDate.getDate()).padStart(2,'0')}`;
       }
 
@@ -108,6 +108,72 @@ window.ShopeeCoinCollector = (function () {
         orderSn: orderSn,
         raw: item
       });
+    }
+
+    parseTimestamp(ts) {
+      if (ts === null || ts === undefined || ts === '') {
+        return new Date();
+      }
+
+      if (typeof ts === 'number') {
+        return new Date(ts > 1e12 ? ts : ts * 1000);
+      }
+
+      if (typeof ts === 'string') {
+        const numericTs = Number(ts);
+        if (!Number.isNaN(numericTs) && ts.trim() !== '') {
+          return new Date(numericTs > 1e12 ? numericTs : numericTs * 1000);
+        }
+
+        const parsed = new Date(ts);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      }
+
+      return new Date();
+    }
+
+    parseResponseItems(resData, pageLimit) {
+      const result = {
+        items: [],
+        hasMore: false,
+        recognized: false
+      };
+
+      if (!resData || typeof resData !== 'object') return result;
+
+      if (resData.data && typeof resData.data === 'object') {
+        const data = resData.data;
+        const list = data.list || data.item || data.logs || data.items;
+
+        if (Array.isArray(list)) {
+          result.items = list;
+          result.recognized = true;
+          if (data.has_more !== undefined) {
+            result.hasMore = Boolean(data.has_more);
+          } else if (data.more !== undefined) {
+            result.hasMore = Boolean(data.more);
+          } else {
+            result.hasMore = list.length === pageLimit;
+          }
+          return result;
+        }
+      }
+
+      if (Array.isArray(resData.list)) {
+        result.items = resData.list;
+        result.recognized = true;
+        if (resData.has_more !== undefined) {
+          result.hasMore = Boolean(resData.has_more);
+        } else if (resData.more !== undefined) {
+          result.hasMore = Boolean(resData.more);
+        } else {
+          result.hasMore = resData.list.length === pageLimit;
+        }
+      }
+
+      return result;
     }
 
     // Try fetching via Shopee's internal REST API endpoints
@@ -134,7 +200,8 @@ window.ShopeeCoinCollector = (function () {
           const resp = await fetch(testUrl, { credentials: 'include' });
           if (resp.ok) {
             const json = await resp.json();
-            if (json && (json.data || json.list || json.error === 0)) {
+            const parsed = this.parseResponseItems(json, 10);
+            if (parsed.recognized) {
               successfulEndpoint = ep;
               break;
             }
@@ -162,17 +229,9 @@ window.ShopeeCoinCollector = (function () {
           }
 
           const resData = await response.json();
-          let items = [];
-          
-          if (resData.data) {
-            items = resData.data.list || resData.data.item || resData.data.logs || resData.data.items || [];
-            hasMore = resData.data.has_more !== undefined ? resData.data.has_more : (items.length === limit);
-          } else if (resData.list) {
-            items = resData.list;
-            hasMore = resData.has_more !== undefined ? resData.has_more : (items.length === limit);
-          } else {
-            hasMore = false;
-          }
+          const parsed = this.parseResponseItems(resData, limit);
+          const items = parsed.items;
+          hasMore = parsed.hasMore;
 
           if (items.length === 0) {
             hasMore = false;
@@ -180,8 +239,12 @@ window.ShopeeCoinCollector = (function () {
           }
 
           for (const item of items) {
-            const rec = this.normalizeRawLogItem(item);
-            this.collectedRecords.set(rec.id, rec);
+            try {
+              const rec = this.normalizeRawLogItem(item);
+              this.collectedRecords.set(rec.id, rec);
+            } catch (itemErr) {
+              console.warn('[ShopeeCoinCollector] Skip malformed item:', itemErr);
+            }
           }
 
           offset += items.length;
@@ -206,7 +269,7 @@ window.ShopeeCoinCollector = (function () {
       }
 
       this.isCollecting = false;
-      return true;
+      return this.collectedRecords.size > 0;
     }
 
     // DOM Scraper Fallback
