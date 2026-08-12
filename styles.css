@@ -1,0 +1,404 @@
+/* Shopee Coin Collector Extension Styles */
+
+/* Floating Launch Button */
+#shopee-coin-float-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 99999;
+  background: linear-gradient(135deg, #ff5722, #ee4d2d);
+  color: #ffffff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(238, 77, 45, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+#shopee-coin-float-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 10px 25px rgba(238, 77, 45, 0.5);
+}
+
+#shopee-coin-float-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Modal Overlay Backdrop */
+#shopee-coin-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 999999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+#shopee-coin-modal-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Main Dashboard Window */
+.shopee-coin-dashboard {
+  background: #f8f9fa;
+  width: 90vw;
+  max-width: 1080px;
+  max-height: 90vh;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #333333;
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(30px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Header */
+.shopee-coin-header {
+  background: #ffffff;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shopee-coin-header-title h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shopee-coin-header-title p {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.shopee-coin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-primary {
+  background: #ee4d2d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: #d73d1e;
+}
+
+.btn-success {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+
+.btn-success:hover {
+  background: #1b5e20;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #495057;
+  border: 1px solid #ced4da;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.btn-outline:hover {
+  background: #f1f3f5;
+  border-color: #adb5bd;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #888;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.btn-close:hover {
+  background: #e9ecef;
+  color: #111;
+}
+
+/* Dashboard Body Scrollable */
+.shopee-coin-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Progress / Banner Notification */
+.shopee-coin-progress-banner {
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #0d47a1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Summary Grid Cards */
+.shopee-coin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-card-title {
+  font-size: 13px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.stat-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.stat-card-value.gain { color: #2e7d32; }
+.stat-card-value.spend { color: #c62828; }
+.stat-card-value.net { color: #ee4d2d; }
+
+/* Filter Controls Bar */
+.shopee-coin-filter-bar {
+  background: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-input, .filter-select {
+  padding: 7px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.filter-input:focus, .filter-select:focus {
+  border-color: #ee4d2d;
+}
+
+/* Charts Section */
+.shopee-coin-charts-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+}
+
+@media (max-width: 820px) {
+  .shopee-coin-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-card {
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-bar:hover {
+  opacity: 0.82;
+  cursor: pointer;
+}
+
+.chart-slice:hover {
+  opacity: 0.85;
+  cursor: pointer;
+  transform: scale(1.02);
+  transform-origin: center;
+}
+
+.chart-empty-msg {
+  color: #999;
+  font-size: 14px;
+}
+
+/* Table Section */
+.shopee-coin-table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  max-height: 380px;
+}
+
+.coin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.coin-table th {
+  background: #f1f3f5;
+  color: #495057;
+  padding: 12px 16px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.coin-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #e9ecef;
+  color: #212529;
+}
+
+.coin-table tr:hover {
+  background: #f8f9fa;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-gain {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-spend {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.badge-expired {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.table-pagination {
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #e9ecef;
+  background: #fafafa;
+  font-size: 13px;
+  color: #6c757d;
+}

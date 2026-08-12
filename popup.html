@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>蝦皮蝦幣歷史紀錄分析器</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      border: 1px solid #e9ecef;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 700;
+      color: #ee4d2d;
+    }
+    .desc {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.4;
+      margin-bottom: 16px;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-main {
+      background: linear-gradient(135deg, #ff5722, #ee4d2d);
+      color: #fff;
+    }
+    .btn-main:hover {
+      opacity: 0.92;
+    }
+    .btn-sub {
+      background: #e9ecef;
+      color: #495057;
+    }
+    .btn-sub:hover {
+      background: #dee2e6;
+    }
+    .footer {
+      margin-top: 14px;
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <span style="font-size: 24px;">🪙</span>
+      <h1>蝦幣紀錄分析與匯出器</h1>
+    </div>
+    <p class="desc">
+      於蝦皮蝦幣紀錄頁面（<code>shopee.tw/user/coin/list/</code>）自動搜集歷史數據，生成統計圖表並匯出 CSV / TXT 檔案。
+    </p>
+    <div class="btn-group">
+      <button id="btn-open-dashboard" class="btn btn-main">🚀 開啟分析儀表板</button>
+      <button id="btn-go-shopee" class="btn btn-sub">🔗 前往蝦皮蝦幣紀錄頁面</button>
+    </div>
+    <div class="footer">
+      支援 CSV (UTF-8) / TXT 導出 | 自動圖表統計
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
