@@ -61,23 +61,25 @@ window.ShopeeCoinAnalytics = (function () {
 
       const category = String(record.category || '其他');
       if (!categoryMap.has(category)) {
-        categoryMap.set(category, { gainMicros: 0, spendMicros: 0, expiredMicros: 0, count: 0 });
+        categoryMap.set(category, { gainMicros: 0, spendMicros: 0, expiredMicros: 0, gainCount: 0, spendCount: 0, expiredCount: 0 });
       }
       const categoryData = categoryMap.get(category);
-      categoryData.count += 1;
 
       if (record.type === 'gain') {
         totalGainedMicros += amountMicros;
         monthData.gainMicros += amountMicros;
         categoryData.gainMicros += amountMicros;
+        categoryData.gainCount += 1;
       } else if (record.type === 'spend') {
         totalSpentMicros += amountMicros;
         monthData.spendMicros += amountMicros;
         categoryData.spendMicros += amountMicros;
+        categoryData.spendCount += 1;
       } else {
         totalExpiredMicros += amountMicros;
         monthData.expiredMicros += amountMicros;
         categoryData.expiredMicros += amountMicros;
+        categoryData.expiredCount += 1;
       }
     });
 
@@ -100,13 +102,16 @@ window.ShopeeCoinAnalytics = (function () {
         spend: microsToCoins(data.spendMicros),
         expired: microsToCoins(data.expiredMicros),
         total: microsToCoins(totalMicros),
-        count: data.count
+        gainCount: data.gainCount,
+        spendCount: data.spendCount,
+        expiredCount: data.expiredCount,
+        count: data.gainCount + data.spendCount + data.expiredCount
       };
     }).sort((a, b) => b.total - a.total);
 
     const sourceCategoryList = categoryList
       .filter(item => item.gain > 0)
-      .map(item => ({ category: item.category, total: item.gain, count: item.count }))
+      .map(item => ({ category: item.category, total: item.gain, count: item.gainCount }))
       .sort((a, b) => b.total - a.total);
     const usageCategoryList = categoryList
       .filter(item => item.spend + item.expired > 0)
@@ -115,7 +120,7 @@ window.ShopeeCoinAnalytics = (function () {
         total: item.spend + item.expired,
         spend: item.spend,
         expired: item.expired,
-        count: item.count
+        count: item.spendCount + item.expiredCount
       }))
       .sort((a, b) => b.total - a.total);
 
@@ -137,7 +142,8 @@ window.ShopeeCoinAnalytics = (function () {
       monthlyList,
       categoryList,
       sourceCategoryList,
-      usageCategoryList
+      usageCategoryList,
+      classificationQuality: window.ShopeeCoinClassification?.computeQuality(records) || null
     };
   }
 
@@ -211,7 +217,7 @@ window.ShopeeCoinAnalytics = (function () {
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" xmlns="http://www.w3.org/2000/svg">`;
 
     if (data.length === 1) {
-      svg += `<circle cx="${cx}" cy="${cy}" r="${(outerRadius + innerRadius) / 2}" fill="none" stroke="${colors[0]}" stroke-width="${outerRadius - innerRadius}" class="chart-slice"><title>${escapeXML(data[0].category)}: ${data[0].total.toFixed(2)} 蝦幣 (100.0%)</title></circle>`;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${(outerRadius + innerRadius) / 2}" fill="none" stroke="${colors[0]}" stroke-width="${outerRadius - innerRadius}" class="chart-slice" data-category="${escapeXML(data[0].category)}" role="button" tabindex="0"><title>${escapeXML(data[0].category)}: ${data[0].total.toFixed(2)} 蝦幣 (100.0%)</title></circle>`;
     } else {
       let startAngle = 0;
       data.forEach((item, index) => {
@@ -228,7 +234,7 @@ window.ShopeeCoinAnalytics = (function () {
         const largeArc = sliceAngle > Math.PI ? 1 : 0;
         const path = `M ${x1Outer} ${y1Outer} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
         const percentage = ((item.total / totalValue) * 100).toFixed(1);
-        svg += `<path d="${path}" fill="${colors[index % colors.length]}" stroke="#fff" stroke-width="1.5" class="chart-slice"><title>${escapeXML(item.category)}: ${item.total.toFixed(2)} 蝦幣 (${percentage}%)</title></path>`;
+        svg += `<path d="${path}" fill="${colors[index % colors.length]}" stroke="#fff" stroke-width="1.5" class="chart-slice" data-category="${escapeXML(item.category)}" role="button" tabindex="0"><title>${escapeXML(item.category)}: ${item.total.toFixed(2)} 蝦幣 (${percentage}%)</title></path>`;
         startAngle = endAngle;
       });
     }
@@ -236,10 +242,19 @@ window.ShopeeCoinAnalytics = (function () {
     svg += `<text x="${cx}" y="${cy - 4}" font-size="12" fill="#888" text-anchor="middle">${escapeXML(options.centerLabel || '總活動量')}</text><text x="${cx}" y="${cy + 16}" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${totalValue.toFixed(2)}</text>`;
     data.slice(0, 6).forEach((item, index) => {
       const percentage = ((item.total / totalValue) * 100).toFixed(1);
-      svg += `<g transform="translate(210, ${30 + index * 28})"><rect width="10" height="10" fill="${colors[index % colors.length]}" rx="2"/><text x="16" y="9" font-size="11" fill="#333">${escapeXML(item.category)} (${percentage}%)</text></g>`;
+      svg += `<g transform="translate(210, ${30 + index * 28})" class="chart-legend-item" data-category="${escapeXML(item.category)}" role="button" tabindex="0"><rect width="10" height="10" fill="${colors[index % colors.length]}" rx="2"/><text x="16" y="9" font-size="11" fill="#333">${escapeXML(item.category)} (${percentage}%)</text></g>`;
     });
     svg += '</svg>';
     container.innerHTML = svg;
+    const selectCategory = event => {
+      const target = event.target.closest?.('[data-category]');
+      if (!target || typeof options.onSelectCategory !== 'function') return;
+      if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return;
+      if (event.type === 'keydown') event.preventDefault();
+      options.onSelectCategory(target.dataset.category);
+    };
+    container.onclick = selectCategory;
+    container.onkeydown = selectCategory;
   }
 
   return { computeStats, renderMonthlyBarChart, renderCategoryDonutChart };

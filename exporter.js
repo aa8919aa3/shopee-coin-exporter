@@ -102,7 +102,7 @@ window.ShopeeCoinExporter = (function () {
     if (!snapshot) return Promise.resolve(false);
 
     return withExportLock(async () => {
-      const parts = [textEncoder.encode(`\uFEFF${['交易時間', '項目說明', '分類', '變動類型', '蝦幣數量', '到期日期', '訂單編號'].map(escapeCSVText).join(',')}\r\n`)];
+      const parts = [textEncoder.encode(`\uFEFF${['交易時間', '項目說明', '分類', '分類規則', '分類信心', '分類說明', '變動類型', '蝦幣數量', '到期日期', '訂單編號'].map(escapeCSVText).join(',')}\r\n`)];
       let chunk = [];
 
       for (let index = 0; index < snapshot.length; index += 1) {
@@ -112,6 +112,9 @@ window.ShopeeCoinExporter = (function () {
           escapeCSVText(record.dateStr),
           escapeCSVText(record.title),
           escapeCSVText(record.category),
+          escapeCSVText(record.categoryRuleId || ''),
+          escapeCSVText(record.categoryConfidence || ''),
+          escapeCSVText(record.categoryExplanation || ''),
           escapeCSVText(typeText(record.type)),
           formatNumber(amount),
           escapeCSVText(record.expiryDate === '-' ? '' : record.expiryDate),
@@ -177,6 +180,8 @@ window.ShopeeCoinExporter = (function () {
         chunk.push(
           `${index + 1}. [${sanitizeTXT(record.dateStr)}] ${sanitizeTXT(record.title)}\n` +
           `    - 分類: ${sanitizeTXT(record.category)} | 類型: ${typeText(record.type)}\n` +
+          `    - 分類依據: ${sanitizeTXT(record.categoryRuleId || 'unknown')} | 信心: ${sanitizeTXT(record.categoryConfidence || 'low')}\n` +
+          (record.categoryExplanation ? `    - 分類說明: ${sanitizeTXT(record.categoryExplanation)}\n` : '') +
           `    - 變動數量: ${amount >= 0 ? '+' : ''}${formatNumber(amount)} Coins\n` +
           (record.expiryDate && record.expiryDate !== '-' ? `    - 到期日期: ${sanitizeTXT(record.expiryDate)}\n` : '') +
           (record.orderSn && record.orderSn !== '-' ? `    - 訂單編號: ${sanitizeTXT(record.orderSn)}\n` : '') +
@@ -196,5 +201,45 @@ window.ShopeeCoinExporter = (function () {
     });
   }
 
-  return { exportCSV, exportTXT };
+  function exportClassificationDiagnostics(records, collectionResult) {
+    const snapshot = validateRecords(records);
+    if (!snapshot) return Promise.resolve(false);
+
+    return withExportLock(async () => {
+      const quality = window.ShopeeCoinClassification.computeQuality(snapshot);
+      const aggregates = new Map();
+      snapshot.forEach(record => {
+        const key = [record.type, record.category, record.categoryRuleId || 'unknown', record.categoryConfidence || 'low'].join('\u0000');
+        const current = aggregates.get(key) || {
+          type: record.type,
+          category: record.category,
+          ruleId: record.categoryRuleId || 'unknown',
+          confidence: record.categoryConfidence || 'low',
+          count: 0,
+          amountMicros: 0
+        };
+        current.count += 1;
+        current.amountMicros += Math.abs(Number(record.amountMicros) || 0);
+        aggregates.set(key, current);
+      });
+      const payload = {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        privacy: 'Aggregated classification diagnostics; titles and order numbers are excluded.',
+        result: {
+          status: collectionResult?.status || 'unknown',
+          complete: Boolean(collectionResult?.complete),
+          recordCount: snapshot.length,
+          pairedRefunds: collectionResult?.pairedRefunds || 0,
+          performance: collectionResult?.performance || null
+        },
+        quality,
+        rules: Array.from(aggregates.values()).sort((a, b) => b.amountMicros - a.amountMicros || b.count - a.count)
+      };
+      const json = JSON.stringify(payload, null, 2);
+      downloadBlob(new Blob([textEncoder.encode(json)], { type: 'application/json;charset=utf-8' }), `蝦皮蝦幣分類診斷_${localFileTimestamp()}.json`);
+    });
+  }
+
+  return { exportCSV, exportTXT, exportClassificationDiagnostics };
 })();

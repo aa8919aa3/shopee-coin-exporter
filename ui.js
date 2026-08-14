@@ -34,9 +34,11 @@ window.ShopeeCoinUI = (function () {
     const refetchButton = document.getElementById('btn-re-fetch');
     const exportCSVButton = document.getElementById('btn-export-csv');
     const exportTXTButton = document.getElementById('btn-export-txt');
+    const exportDiagnosticsButton = document.getElementById('btn-export-diagnostics');
     if (refetchButton) refetchButton.disabled = isCollecting;
     if (exportCSVButton) exportCSVButton.disabled = isCollecting || currentRecords.length === 0;
     if (exportTXTButton) exportTXTButton.disabled = isCollecting || currentRecords.length === 0;
+    if (exportDiagnosticsButton) exportDiagnosticsButton.disabled = isCollecting || currentRecords.length === 0;
   }
 
   function injectFloatButton() {
@@ -80,6 +82,7 @@ window.ShopeeCoinUI = (function () {
             <button id="btn-re-fetch" class="btn-primary">🔄 重新抓取資料</button>
             <button id="btn-export-csv" class="btn-success" disabled>📥 匯出 CSV</button>
             <button id="btn-export-txt" class="btn-outline" disabled>📄 匯出 TXT 報表</button>
+            <button id="btn-export-diagnostics" class="btn-outline" disabled title="僅匯出分類彙總，不含商品標題與訂單編號">分類診斷 JSON</button>
             <button id="btn-close-modal" class="btn-close" title="關閉" aria-label="關閉">✕</button>
           </div>
         </div>
@@ -91,6 +94,16 @@ window.ShopeeCoinUI = (function () {
           <section id="debug-panel" class="shopee-coin-debug-panel" hidden>
             <div class="debug-panel-title"><span>🛠 API 與性能診斷</span><span id="debug-state-label">Debug 已開啟</span></div>
             <pre id="debug-output">等待抓取資料…</pre>
+          </section>
+          <section id="classification-quality-panel" class="classification-quality-panel">
+            <div class="classification-quality-title"><span>分類品質</span><span id="classification-quality-state">等待資料</span></div>
+            <div class="classification-quality-grid">
+              <button id="quality-source-fallback" class="quality-metric" type="button"><span>其他來源</span><strong>--</strong></button>
+              <button id="quality-usage-fallback" class="quality-metric" type="button"><span>其他使用</span><strong>--</strong></button>
+              <div class="quality-metric"><span>低信心分類</span><strong id="quality-low-confidence">--</strong></div>
+              <div class="quality-metric"><span>退款／沖正配對</span><strong id="quality-paired-refunds">--</strong></div>
+            </div>
+            <p>點擊「其他來源」或「其他使用」可直接檢視 fallback 紀錄；分類占比超過 5% 時會標示警告。</p>
           </section>
           <div class="shopee-coin-stats-grid">
             <div class="stat-card stat-card-primary"><span class="stat-card-title">目前可用蝦幣（官方餘額）</span><span class="stat-card-value net" id="stat-available-coins">--</span></div>
@@ -116,7 +129,7 @@ window.ShopeeCoinUI = (function () {
             <div class="filter-group"><span>每頁顯示：</span><select id="filter-pagesize" class="filter-select"><option value="15" selected>15 筆</option><option value="30">30 筆</option><option value="50">50 筆</option><option value="100">100 筆</option></select></div>
           </div>
           <div class="shopee-coin-table-card">
-            <div class="table-wrapper"><table class="coin-table"><thead><tr><th>交易時間</th><th>項目說明</th><th>分類</th><th>類型</th><th>變動數量</th><th>到期日期</th><th>訂單編號</th></tr></thead><tbody id="coin-table-body"></tbody></table></div>
+            <div class="table-wrapper"><table class="coin-table"><thead><tr><th>交易時間</th><th>項目說明</th><th>分類</th><th>分類依據</th><th>類型</th><th>變動數量</th><th>到期日期</th><th>訂單編號</th></tr></thead><tbody id="coin-table-body"></tbody></table></div>
             <div class="table-pagination"><span id="pagination-info">顯示 0 - 0 筆，共 0 筆</span><div><button id="btn-prev-page" class="btn-outline">‹ 上一頁</button><span id="page-num-display">1 / 1</span><button id="btn-next-page" class="btn-outline">下一頁 ›</button></div></div>
           </div>
         </div>
@@ -139,6 +152,8 @@ window.ShopeeCoinUI = (function () {
     });
     document.getElementById('btn-re-fetch').addEventListener('click', startCollecting);
     document.getElementById('btn-stop-fetch').addEventListener('click', stopCollecting);
+    document.getElementById('quality-source-fallback').addEventListener('click', () => selectCategoryFromChart('其他來源', 'gain'));
+    document.getElementById('quality-usage-fallback').addEventListener('click', () => selectCategoryFromChart('其他使用', 'all'));
     document.getElementById('btn-export-csv').addEventListener('click', () => {
       const snapshot = filteredRecords.slice();
       ShopeeCoinExporter.exportCSV(snapshot, ShopeeCoinAnalytics.computeStats(snapshot), accountSummary, collectionResult);
@@ -146,6 +161,9 @@ window.ShopeeCoinUI = (function () {
     document.getElementById('btn-export-txt').addEventListener('click', () => {
       const snapshot = filteredRecords.slice();
       ShopeeCoinExporter.exportTXT(snapshot, ShopeeCoinAnalytics.computeStats(snapshot), accountSummary, collectionResult);
+    });
+    document.getElementById('btn-export-diagnostics').addEventListener('click', () => {
+      ShopeeCoinExporter.exportClassificationDiagnostics(currentRecords.slice(), collectionResult);
     });
 
     document.getElementById('filter-keyword').addEventListener('input', () => {
@@ -190,7 +208,12 @@ window.ShopeeCoinUI = (function () {
       lines.push(`摘要 API：${performance.summaryDurationMs?.toFixed(2) ?? '--'} ms`);
       lines.push(`交易頁：${performance.pagesFetched} 頁；平均 ${performance.averagePageDurationMs?.toFixed(2) ?? '--'} ms；最慢 ${performance.slowestPageDurationMs?.toFixed(2) ?? '--'} ms`);
       lines.push(`分頁節流等待：${performance.pageDelayTotalMs} ms；吞吐量：${performance.recordsPerSecond ?? '--'} 筆/秒`);
+      lines.push(`分類引擎：${performance.classificationDurationMs?.toFixed(2) ?? '--'} ms`);
       lines.push(`結果：${result.status}；紀錄 ${result.records?.length || 0} 筆；失敗 offset：${result.failedOffset ?? '--'}`);
+      if (result.classificationQuality) {
+        lines.push(`分類品質：其他來源 ${result.classificationQuality.sourceFallbackPercent.toFixed(2)}%；其他使用 ${result.classificationQuality.usageFallbackPercent.toFixed(2)}%；低信心 ${result.classificationQuality.confidenceCounts.low} 筆`);
+        lines.push(`退款／沖正配對：${result.pairedRefunds || 0} 筆`);
+      }
     } else {
       lines.push('尚未完成一輪抓取；下方顯示最近請求事件。');
     }
@@ -262,7 +285,17 @@ window.ShopeeCoinUI = (function () {
         const fallback = ShopeeCoinCollector.APIClient.scrapeFromDOM();
         if (fallback.records.length > 0) {
           currentRecords = fallback.records;
-          collectionResult = { ...result, status: 'partial', complete: false, rejectedRecords: fallback.rejectedRecords, source: 'dom' };
+          collectionResult = {
+            ...result,
+            status: 'partial',
+            complete: false,
+            records: fallback.records,
+            rejectedRecords: fallback.rejectedRecords,
+            classificationQuality: fallback.classificationQuality,
+            pairedRefunds: fallback.pairedRefunds,
+            pairedRefundAmountMicros: fallback.pairedRefundAmountMicros,
+            source: 'dom'
+          };
           showStatus(`API 失敗，僅顯示目前頁面可解析的 ${currentRecords.length} 筆部分資料。`, 'warning');
         } else {
           showStatus(`抓取失敗：${result.error?.message || '無法取得資料'}`, 'error');
@@ -306,6 +339,7 @@ window.ShopeeCoinUI = (function () {
     setText('stat-total-expired', `-${formatCoins(summaryStats.totalExpired)}`);
     setText('stat-net-coins', `${summaryStats.periodNetChange >= 0 ? '+' : ''}${formatCoins(summaryStats.periodNetChange)}`);
     setText('stat-total-count', `${summaryStats.validRecords} 筆`);
+    updateClassificationQuality(summaryStats.classificationQuality, collectionResult);
 
     const scopeNote = document.getElementById('history-scope-note');
     if (scopeNote) {
@@ -328,15 +362,52 @@ window.ShopeeCoinUI = (function () {
     ShopeeCoinAnalytics.renderCategoryDonutChart(
       document.getElementById('source-category-donut-chart-container'),
       summaryStats.sourceCategoryList,
-      { centerLabel: '獲得總量', emptyMessage: '尚無蝦幣來源資料' }
+      { centerLabel: '獲得總量', emptyMessage: '尚無蝦幣來源資料', onSelectCategory: category => selectCategoryFromChart(category, 'gain') }
     );
     ShopeeCoinAnalytics.renderCategoryDonutChart(
       document.getElementById('usage-category-donut-chart-container'),
       summaryStats.usageCategoryList,
-      { centerLabel: '使用總量', emptyMessage: '尚無蝦幣使用資料' }
+      { centerLabel: '使用總量', emptyMessage: '尚無蝦幣使用資料', onSelectCategory: category => selectCategoryFromChart(category, 'all') }
     );
     applyFilters(false);
     setControlsCollecting(ShopeeCoinCollector.APIClient.isCollecting);
+  }
+
+  function updateClassificationQuality(quality, result) {
+    const panel = document.getElementById('classification-quality-panel');
+    if (!panel || !quality) return;
+    const microsToCoins = value => (Number(value) || 0) / (ShopeeCoinCollector.COIN_SCALE || 100000);
+    const sourceButton = document.getElementById('quality-source-fallback');
+    const usageButton = document.getElementById('quality-usage-fallback');
+    const sourceText = `${quality.sourceFallbackCount} 筆／${formatCoins(microsToCoins(quality.sourceFallbackAmountMicros))}（${quality.sourceFallbackPercent.toFixed(2)}%）`;
+    const usageText = `${quality.usageFallbackCount} 筆／${formatCoins(microsToCoins(quality.usageFallbackAmountMicros))}（${quality.usageFallbackPercent.toFixed(2)}%）`;
+    if (sourceButton) {
+      sourceButton.querySelector('strong').textContent = sourceText;
+      sourceButton.disabled = quality.sourceFallbackCount === 0;
+      sourceButton.classList.toggle('quality-warning', quality.sourceFallbackPercent > 5);
+    }
+    if (usageButton) {
+      usageButton.querySelector('strong').textContent = usageText;
+      usageButton.disabled = quality.usageFallbackCount === 0;
+      usageButton.classList.toggle('quality-warning', quality.usageFallbackPercent > 5);
+    }
+    setText('quality-low-confidence', `${quality.confidenceCounts.low} 筆`);
+    setText('quality-paired-refunds', `${result?.pairedRefunds || 0} 筆`);
+    const hasWarning = quality.sourceFallbackPercent > 5 || quality.usageFallbackPercent > 5;
+    panel.classList.toggle('has-warning', hasWarning);
+    setText('classification-quality-state', hasWarning ? '需要檢視' : '分類正常');
+  }
+
+  function selectCategoryFromChart(category, type = 'all') {
+    const categoryFilter = document.getElementById('filter-category');
+    const typeFilter = document.getElementById('filter-type');
+    if (!categoryFilter || !typeFilter) return;
+    const hasCategory = Array.from(categoryFilter.options).some(option => option.value === category);
+    if (!hasCategory) return;
+    categoryFilter.value = category;
+    typeFilter.value = type;
+    applyFilters(true);
+    document.querySelector('.shopee-coin-filter-bar')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function applyFilters(resetPage) {
@@ -365,7 +436,7 @@ window.ShopeeCoinUI = (function () {
     if (filteredRecords.length === 0) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 7;
+      cell.colSpan = 8;
       cell.className = 'empty-table-message';
       cell.textContent = currentRecords.length === 0 ? '尚無蝦幣紀錄' : '沒有符合篩選條件的蝦幣紀錄';
       row.appendChild(cell);
@@ -384,6 +455,14 @@ window.ShopeeCoinUI = (function () {
       appendCell(row, record.dateStr);
       appendCell(row, record.title);
       appendCell(row, record.category);
+
+      const ruleCell = document.createElement('td');
+      const ruleLabel = document.createElement('span');
+      ruleLabel.className = `classification-rule confidence-${record.categoryConfidence || 'low'}`;
+      ruleLabel.textContent = `${record.categoryConfidence === 'high' ? '高' : record.categoryConfidence === 'medium' ? '中' : '低'} · ${record.categoryRuleId || 'unknown'}`;
+      ruleLabel.title = record.categoryExplanation || '';
+      ruleCell.appendChild(ruleLabel);
+      row.appendChild(ruleCell);
 
       const typeCell = document.createElement('td');
       const badge = document.createElement('span');

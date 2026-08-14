@@ -23,7 +23,11 @@ window.ShopeeCoinFilters = (function () {
       if (type !== 'all' && record?.type !== type) return false;
       if (category !== 'all' && record?.category !== category) return false;
       if (!keyword) return true;
-      return includesKeyword(record?.title) || includesKeyword(record?.orderSn) || includesKeyword(record?.category);
+      return includesKeyword(record?.title) ||
+        includesKeyword(record?.orderSn) ||
+        includesKeyword(record?.category) ||
+        includesKeyword(record?.categoryRuleId) ||
+        includesKeyword(record?.categoryExplanation);
     });
   }
 

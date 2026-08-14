@@ -3,11 +3,13 @@ const fs = require('node:fs');
 const { performance } = require('node:perf_hooks');
 
 global.window = {};
+require('./classification.js');
 require('./api.js');
 require('./filters.js');
 require('./charts.js');
 
 const collector = window.ShopeeCoinCollector;
+const classification = window.ShopeeCoinClassification;
 const filters = window.ShopeeCoinFilters;
 const analytics = window.ShopeeCoinAnalytics;
 
@@ -67,6 +69,7 @@ async function testCompleteFetchAndExactStats() {
   assert.ok(result.performance.totalDurationMs >= 0);
   assert.equal(result.performance.pagesFetched, 2);
   assert.ok(result.performance.averagePageDurationMs >= 0);
+  assert.ok(result.performance.classificationDurationMs >= 0);
   assert.ok(progress.every(event => !Object.hasOwn(event, 'records')), 'progress must not clone all records');
   assert.ok(progress.every(event => Number.isFinite(event.lastPageDurationMs)), 'progress must expose page latency');
   assert.equal(result.records.find(record => record.id === 'api_2').type, 'gain');
@@ -164,13 +167,127 @@ function testActivityCategories() {
     ['完成訂單評價獎勵', '評價'],
     ['VIP 訂閱會員回饋', 'VIP訂閱'],
     ['蝦皮聯名卡消費回饋', '蝦皮聯名卡'],
-    ['蝦幣獎勵發放', '蝦幣獎勵']
+    ['蝦幣獎勵發放', '蝦幣獎勵'],
+    ['蝦皮直播 - 透過蝦皮直播領取的獎勵', '蝦皮直播'],
+    ['直播蝦幣 - 你在蝦皮直播中獲得了蝦幣', '蝦皮直播'],
+    ['蝦蝦果園 - 恭喜獲得蝦幣', '蝦皮遊戲'],
+    ['VIP專屬寶箱 - 獲得10蝦幣', 'VIP訂閱'],
+    ['蝦幣寶箱 - 獲得0.08蝦幣', '蝦幣獎勵']
   ]);
   examples.forEach((expected, title) => {
     const record = new collector.CoinRecord({ id: title, timestampMs: 1700000000000, title, type: 'gain', amountMicros: 1 });
     assert.equal(record.category, expected, title);
     assert.ok(collector.ACTIVITY_CATEGORIES.includes(expected));
   });
+}
+
+function testClassificationV130Fixture() {
+  const fixture = JSON.parse(fs.readFileSync('tests/fixtures/classification-v130.json', 'utf8'));
+  const records = [];
+  let timestampMs = 1700000000000;
+
+  fixture.usageCases.forEach(testCase => {
+    assert.equal(testCase.amounts.length, testCase.count);
+    testCase.amounts.forEach((amount, index) => {
+      const orderSn = testCase.orderPrefix ? `${testCase.orderPrefix}-${index + 1}` : '-';
+      const record = new collector.CoinRecord({
+        id: `${testCase.prefix}-${index + 1}`,
+        timestampMs: timestampMs++,
+        title: testCase.rawName,
+        rawName: testCase.rawName,
+        rawReason: '',
+        type: 'spend',
+        amountMicros: collector.coinsToMicros(amount),
+        orderSn
+      });
+      assert.equal(record.category, testCase.expectedCategory, testCase.prefix);
+      assert.equal(record.categoryRuleId, testCase.expectedRuleId, testCase.prefix);
+      records.push(record);
+    });
+  });
+
+  fixture.refundCases.forEach(testCase => {
+    records.push(new collector.CoinRecord({
+      id: testCase.id,
+      timestampMs: timestampMs++,
+      title: testCase.rawName,
+      rawName: testCase.rawName,
+      rawReason: '',
+      type: 'gain',
+      amountMicros: collector.coinsToMicros(testCase.amount),
+      orderSn: testCase.orderSn
+    }));
+  });
+  fixture.unresolvedSourceCases.forEach(testCase => {
+    records.push(new collector.CoinRecord({
+      id: testCase.id,
+      timestampMs: timestampMs++,
+      title: testCase.rawName,
+      rawName: testCase.rawName,
+      rawReason: '',
+      type: 'gain',
+      amountMicros: collector.coinsToMicros(testCase.amount),
+      orderSn: '-'
+    }));
+  });
+
+  const result = classification.classifyRecords(records);
+  const quality = classification.computeQuality(records);
+  const stats = analytics.computeStats(records);
+  const usageRecords = records.filter(record => ['spend', 'expired'].includes(record.type));
+  const usageFallback = usageRecords.filter(record => record.category === '其他使用');
+  const pairedRefundAmountMicros = records
+    .filter(record => record.category === '退款/沖正')
+    .reduce((sum, record) => sum + record.amountMicros, 0);
+
+  assert.equal(usageRecords.length, fixture.expected.usageRecordCount);
+  assert.equal(stats.totalSpentMicros, collector.coinsToMicros(fixture.expected.usageAmount));
+  assert.equal(usageFallback.length, fixture.expected.usageFallbackCount);
+  assert.equal(quality.usageFallbackPercent, fixture.expected.usageFallbackPercent);
+  assert.equal(result.pairedRefunds, fixture.expected.pairedRefunds);
+  assert.equal(result.pairedRefundAmountMicros, collector.coinsToMicros(fixture.expected.pairedRefundAmount));
+  assert.equal(pairedRefundAmountMicros, collector.coinsToMicros(fixture.expected.pairedRefundAmount));
+  assert.equal(quality.sourceFallbackAmountMicros, collector.coinsToMicros(fixture.expected.remainingSourceFallbackAmount));
+
+  fixture.refundCases.forEach(testCase => {
+    const record = records.find(item => item.id === testCase.id);
+    assert.equal(record.category, '退款/沖正');
+    assert.equal(record.categoryRuleId, testCase.expectedRuleId);
+  });
+
+  assert.equal(records.find(record => record.id === 'order-live-word-1').category, '訂單蝦幣折抵');
+  assert.equal(records.find(record => record.id === 'order-game-word-1').category, '訂單蝦幣折抵');
+  assert.equal(Math.round(stats.usageCategoryList.reduce((sum, item) => sum + item.total, 0) * collector.COIN_SCALE), stats.totalSpentMicros + stats.totalExpiredMicros);
+  assert.equal(Math.round(stats.sourceCategoryList.reduce((sum, item) => sum + item.total, 0) * collector.COIN_SCALE), stats.totalGainedMicros);
+
+  const unequalAmountPair = [
+    new collector.CoinRecord({ id: 'same-order-spend', timestampMs: timestampMs++, title: 'Synthetic Order', type: 'spend', amountMicros: collector.coinsToMicros(100), orderSn: 'SAME-ORDER' }),
+    new collector.CoinRecord({ id: 'same-order-gain', timestampMs: timestampMs++, title: 'Synthetic Order Reward', type: 'gain', amountMicros: collector.coinsToMicros(200), orderSn: 'SAME-ORDER' })
+  ];
+  classification.classifyRecords(unequalAmountPair);
+  assert.equal(unequalAmountPair[1].category, '購物/訂單', 'same order with a different amount must remain an order reward, not a refund');
+}
+
+function testClassificationPerformance() {
+  const records = Array.from({ length: 100000 }, (_, index) => new collector.CoinRecord({
+    id: `classification_${index}`,
+    timestampMs: 1700000000000 + index,
+    title: index % 5 === 0 ? 'Studio Live Product' : 'Generic Marketplace Product',
+    rawName: index % 5 === 0 ? 'Studio Live Product' : 'Generic Marketplace Product',
+    rawReason: '',
+    type: index % 4 === 0 ? 'spend' : 'gain',
+    amountMicros: index % 11 + 1,
+    orderSn: index % 4 === 0 ? `ORDER-${index}` : '-'
+  }));
+  const started = performance.now();
+  const result = classification.classifyRecords(records);
+  const quality = classification.computeQuality(records);
+  const elapsed = performance.now() - started;
+  assert.equal(result.records.length, records.length);
+  assert.equal(quality.totalRecords, records.length);
+  assert.ok(records.filter(record => record.type === 'spend').every(record => record.category === '訂單蝦幣折抵'));
+  assert.ok(elapsed < 1500, `100,000 records should classify under 1.5s, got ${elapsed.toFixed(1)}ms`);
+  console.log(`100,000-record classification: ${elapsed.toFixed(1)}ms`);
 }
 
 function testLargeRecordFiltering() {
@@ -243,6 +360,8 @@ async function main() {
   await testClearDoesNotResurrectOldData();
   await testNetworkRetryDiagnostics();
   testActivityCategories();
+  testClassificationV130Fixture();
+  testClassificationPerformance();
   testLargeRecordFiltering();
   testTenThousandRecordPerformance();
   await testCSVFormulaNeutralization();

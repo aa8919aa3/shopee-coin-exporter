@@ -14,23 +14,9 @@ window.ShopeeCoinCollector = (function () {
   const MAX_RETRIES = 3;
   const PAGE_DELAY_MS = 50;
   const DEBUG_STORAGE_KEY = 'shopeeCoinDebugEnabled';
-  const ACTIVITY_CATEGORIES = Object.freeze([
-    '每日簽到',
-    '每日登入',
-    '購物/訂單',
-    '消費折抵',
-    '蝦幣過期',
-    '退款/補償',
-    '蝦皮遊戲',
-    '短影音',
-    '蝦皮直播',
-    '評價',
-    'VIP訂閱',
-    '蝦皮聯名卡',
-    '蝦幣獎勵',
-    '行銷活動/任務',
-    '其他活動'
-  ]);
+  const Classification = window.ShopeeCoinClassification;
+  if (!Classification) throw new Error('ShopeeCoinClassification must load before api.js');
+  const ACTIVITY_CATEGORIES = Classification.ACTIVITY_CATEGORIES;
 
   const diagnostics = {
     enabled: false,
@@ -184,32 +170,27 @@ window.ShopeeCoinCollector = (function () {
       this.type = ['gain', 'spend', 'expired'].includes(data.type) ? data.type : 'unknown';
       this.amountMicros = Math.abs(Number.isSafeInteger(data.amountMicros) ? data.amountMicros : 0);
       this.expiryDate = String(data.expiryDate || '-');
-      this.orderSn = String(data.orderSn || '-');
-      this.category = String(data.category || this.inferCategory(this.title));
+      this.orderSn = Classification.normalizeOrderSn(data.orderSn);
+      this.rawName = String(data.rawName || data.title || '');
+      this.rawReason = String(data.rawReason || '');
+      const classification = data.category
+        ? {
+            category: data.category,
+            ruleId: data.categoryRuleId || 'manual.preserved',
+            confidence: data.categoryConfidence || 'medium',
+            explanation: data.categoryExplanation || '由呼叫端提供分類。'
+          }
+        : Classification.classifyRecord(this);
+      this.category = String(classification.category);
+      this.categoryRuleId = String(classification.ruleId);
+      this.categoryConfidence = String(classification.confidence);
+      this.categoryExplanation = String(classification.explanation);
     }
 
     get displayAmount() {
       return microsToCoins(this.type === 'gain' ? this.amountMicros : -this.amountMicros);
     }
 
-    inferCategory(title) {
-      if (!title) return '其他';
-      if (/每日登入|每日登錄|登入獎勵|登錄獎勵/.test(title)) return '每日登入';
-      if (title.includes('簽到') || title.includes('報到')) return '每日簽到';
-      if (title.includes('過期') || title.includes('失效')) return '蝦幣過期';
-      if (title.includes('退款') || title.includes('退貨') || title.includes('補償')) return '退款/補償';
-      if (/短影音|短視頻|短视频|Shopee Video/i.test(title)) return '短影音';
-      if (/評價|評論|評分/.test(title)) return '評價';
-      if (/VIP\s*訂閱|VIP\s*會員|會員訂閱/i.test(title)) return 'VIP訂閱';
-      if (/蝦皮聯名卡|聯名卡|蝦皮信用卡|Shopee\s*信用卡/i.test(title)) return '蝦皮聯名卡';
-      if (/蝦幣獎勵|蝦幣回饋|Coin\s*Reward/i.test(title)) return '蝦幣獎勵';
-      if (title.includes('折抵') || title.includes('使用') || title.includes('付款')) return '消費折抵';
-      if (title.includes('訂單') || title.includes('購物') || title.includes('完成訂單')) return '購物/訂單';
-      if (title.includes('遊戲') || title.includes('蝦蝦果園') || title.includes('消消樂') || title.includes('寶箱')) return '蝦皮遊戲';
-      if (title.includes('任務') || title.includes('活動') || title.includes('挑戰')) return '行銷活動/任務';
-      if (title.includes('直播')) return '蝦皮直播';
-      return '其他活動';
-    }
   }
 
   class APIClient {
@@ -423,6 +404,8 @@ window.ShopeeCoinCollector = (function () {
         id,
         timestampMs: parsedTime.timestampMs,
         title: fullTitle,
+        rawName: name,
+        rawReason: reason,
         type,
         amountMicros,
         expiryDate,
@@ -584,7 +567,11 @@ window.ShopeeCoinCollector = (function () {
         else if (records.size > 0) status = 'partial';
         else status = 'failed';
 
-        const sortedRecords = Array.from(records.values()).sort((a, b) => b.timestampMs - a.timestampMs || a.id.localeCompare(b.id));
+        const classificationStartedAtMs = nowMs();
+        const classificationResult = Classification.classifyRecords(Array.from(records.values()));
+        const classificationDurationMs = Math.round((nowMs() - classificationStartedAtMs) * 100) / 100;
+        const sortedRecords = classificationResult.records.sort((a, b) => b.timestampMs - a.timestampMs || a.id.localeCompare(b.id));
+        const classificationQuality = Classification.computeQuality(sortedRecords);
         records.clear();
         const totalDurationMs = Math.round((nowMs() - runStartedAtMs) * 100) / 100;
         const transactionDurationMs = Math.round(pageDurationsMs.reduce((sum, value) => sum + value, 0) * 100) / 100;
@@ -596,7 +583,8 @@ window.ShopeeCoinCollector = (function () {
           slowestPageDurationMs: pageDurationsMs.length ? Math.max(...pageDurationsMs) : null,
           pageDelayTotalMs: Math.max(0, pagesFetched - 1) * PAGE_DELAY_MS,
           pagesFetched,
-          recordsPerSecond: totalDurationMs > 0 ? Math.round((sortedRecords.length / totalDurationMs) * 100000) / 100 : null
+          recordsPerSecond: totalDurationMs > 0 ? Math.round((sortedRecords.length / totalDurationMs) * 100000) / 100 : null,
+          classificationDurationMs
         };
         recordDiagnostic('collection:complete', {
           status,
@@ -613,6 +601,9 @@ window.ShopeeCoinCollector = (function () {
           summaryError,
           pagesFetched,
           rejectedRecords,
+          pairedRefunds: classificationResult.pairedRefunds,
+          pairedRefundAmountMicros: classificationResult.pairedRefundAmountMicros,
+          classificationQuality,
           warnings,
           failedOffset: terminalError?.details?.offset ?? null,
           error: terminalError ? this.serializeError(terminalError) : null,
@@ -652,6 +643,8 @@ window.ShopeeCoinCollector = (function () {
             id: `dom_${stableHash([date.getTime(), combinedText, amount, index].join('|'))}`,
             timestampMs: date.getTime(),
             title: description ? `${title} - ${description}` : title,
+            rawName: title,
+            rawReason: description,
             type,
             amountMicros: Math.abs(coinsToMicros(amount) || 0)
           }));
@@ -660,8 +653,9 @@ window.ShopeeCoinCollector = (function () {
         }
       });
 
+      const classificationResult = Classification.classifyRecords(records);
       records.sort((a, b) => b.timestampMs - a.timestampMs);
-      return { records, rejectedRecords };
+      return { records, rejectedRecords, classificationQuality: Classification.computeQuality(records), ...classificationResult };
     }
 
     serializeError(error) {
@@ -695,6 +689,7 @@ window.ShopeeCoinCollector = (function () {
     setDebugEnabled,
     isDebugEnabled: () => diagnostics.enabled,
     getDiagnostics,
+    Classification,
     APIClient: new APIClient()
   };
 })();

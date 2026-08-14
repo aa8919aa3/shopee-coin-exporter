@@ -1,0 +1,626 @@
+{
+  "benchmarkVersion": 2,
+  "startedAt": "2026-08-14T15:35:03.049Z",
+  "environment": {
+    "node": "v26.7.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M1 Pro",
+    "logicalCores": 8,
+    "totalMemoryMB": 16384
+  },
+  "results": [
+    {
+      "count": 10000,
+      "timeMs": {
+        "constructRecords": 14.11,
+        "classificationMedian": 3.86,
+        "classificationSamples": [
+          4.07,
+          4.09,
+          3.86,
+          3.67,
+          3.84
+        ],
+        "aggregateMedian": 2.18,
+        "aggregateSamples": [
+          2.67,
+          2.4,
+          2.18,
+          1.9,
+          2.03
+        ],
+        "sortCopyMedian": 2.09,
+        "sortCopySamples": [
+          2.09,
+          2.47,
+          2.01
+        ],
+        "keywordFilterMedian": 2.18,
+        "keywordFilterSamples": [
+          1.41,
+          2.22,
+          2.18,
+          2.06,
+          2.19
+        ],
+        "categoryFilterMedian": 0.37,
+        "categoryFilterSamples": [
+          0.46,
+          0.37,
+          0.19,
+          0.35,
+          0.5
+        ],
+        "buildDedupeMap": 2.69,
+        "finalizePipeline": 1.69,
+        "exportCSV": 22.37,
+        "exportCSVSamples": [
+          23.47,
+          22.37,
+          22.59,
+          22.25,
+          22.2
+        ],
+        "exportTXT": 20.49,
+        "exportTXTSamples": [
+          22.4,
+          17.72,
+          22.09,
+          20.49,
+          17.9
+        ]
+      },
+      "output": {
+        "keywordMatches": 526,
+        "categoryMatches": 395,
+        "classificationQuality": {
+          "totalRecords": 10000,
+          "confidenceCounts": {
+            "high": 8105,
+            "medium": 106,
+            "low": 1789
+          },
+          "ruleHits": {
+            "usage.expired": 500,
+            "source.daily-login": 395,
+            "source.coin-reward": 4736,
+            "source.explicit-refund": 396,
+            "usage.fallback": 1789,
+            "source.short-video": 395,
+            "source.review": 395,
+            "source.co-branded-card": 394,
+            "usage.explicit-activity-spend": 106,
+            "source.daily-checkin": 395,
+            "source.vip-subscription": 394,
+            "usage.voucher-or-service": 105
+          },
+          "sourceFallbackCount": 0,
+          "sourceFallbackAmountMicros": 0,
+          "sourceFallbackPercent": 0,
+          "usageFallbackCount": 1789,
+          "usageFallbackAmountMicros": 4476229,
+          "usageFallbackPercent": 71.65
+        },
+        "csvBytes": 2091403,
+        "txtBytes": 3020559
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 53.84,
+          "heapUsed": 4.09,
+          "heapTotal": 5.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 69.13,
+          "heapUsed": 12.24,
+          "heapTotal": 17.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 71.48,
+          "heapUsed": 9.93,
+          "heapTotal": 18.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 5.84,
+        "withSortedCopyImmediate": {
+          "rss": 78.8,
+          "heapUsed": 10.06,
+          "heapTotal": 23.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 79.05,
+          "heapUsed": 8.57,
+          "heapTotal": 23.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": -1.36,
+        "withMapImmediate": {
+          "rss": 79.89,
+          "heapUsed": 10.65,
+          "heapTotal": 24.08,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 79.95,
+          "heapUsed": 8.41,
+          "heapTotal": 22.34,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": -1.52,
+        "beforeCSV": {
+          "rss": 79.52,
+          "heapUsed": 7.97,
+          "heapTotal": 21.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 93.23,
+          "heapUsed": 9.79,
+          "heapTotal": 25.64,
+          "external": 3.88,
+          "arrayBuffers": 4.12
+        },
+        "csvHeapDelta": 1.82,
+        "csvExternalDelta": 2,
+        "beforeTXT": {
+          "rss": 93.23,
+          "heapUsed": 8.05,
+          "heapTotal": 25.64,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 117.92,
+          "heapUsed": 12.73,
+          "heapTotal": 41.64,
+          "external": 4.76,
+          "arrayBuffers": 5.89
+        },
+        "txtHeapDelta": 4.68,
+        "txtExternalDelta": 2.88,
+        "legacyArrayAndMap": {
+          "rss": 119.28,
+          "heapUsed": 9.31,
+          "heapTotal": 42.34,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "optimizedArrayOnly": {
+          "rss": 118.86,
+          "heapUsed": 8.87,
+          "heapTotal": 41.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "retainedContainerHeapSaved": 0.44,
+        "afterRelease": {
+          "rss": 118.94,
+          "heapUsed": 8.79,
+          "heapTotal": 41.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    },
+    {
+      "count": 50000,
+      "timeMs": {
+        "constructRecords": 47.61,
+        "classificationMedian": 18.46,
+        "classificationSamples": [
+          22.59,
+          18.45,
+          18.46,
+          18.04,
+          19.7
+        ],
+        "aggregateMedian": 9.41,
+        "aggregateSamples": [
+          18.87,
+          11.76,
+          9.12,
+          9.39,
+          9.41
+        ],
+        "sortCopyMedian": 17.48,
+        "sortCopySamples": [
+          17.48,
+          17.54,
+          15.67
+        ],
+        "keywordFilterMedian": 7,
+        "keywordFilterSamples": [
+          6.16,
+          7.92,
+          7.39,
+          7,
+          6.93
+        ],
+        "categoryFilterMedian": 1.57,
+        "categoryFilterSamples": [
+          1.68,
+          0.95,
+          1.6,
+          0.89,
+          1.57
+        ],
+        "buildDedupeMap": 14.41,
+        "finalizePipeline": 15.18,
+        "exportCSV": 103.72,
+        "exportCSVSamples": [
+          105.31,
+          105.3,
+          103,
+          99.46,
+          103.72
+        ],
+        "exportTXT": 73.75,
+        "exportTXTSamples": [
+          73.8,
+          73.81,
+          73.36,
+          73.16,
+          73.75
+        ]
+      },
+      "output": {
+        "keywordMatches": 2632,
+        "categoryMatches": 1974,
+        "classificationQuality": {
+          "totalRecords": 50000,
+          "confidenceCounts": {
+            "high": 40527,
+            "medium": 527,
+            "low": 8946
+          },
+          "ruleHits": {
+            "usage.expired": 2500,
+            "source.daily-login": 1974,
+            "source.coin-reward": 23682,
+            "source.explicit-refund": 1974,
+            "usage.fallback": 8946,
+            "source.short-video": 1974,
+            "source.review": 1974,
+            "source.co-branded-card": 1974,
+            "usage.explicit-activity-spend": 527,
+            "source.daily-checkin": 1974,
+            "source.vip-subscription": 1974,
+            "usage.voucher-or-service": 527
+          },
+          "sourceFallbackCount": 0,
+          "sourceFallbackAmountMicros": 0,
+          "sourceFallbackPercent": 0,
+          "usageFallbackCount": 8946,
+          "usageFallbackAmountMicros": 22373946,
+          "usageFallbackPercent": 71.63
+        },
+        "csvBytes": 10500752,
+        "txtBytes": 15187910
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 118.94,
+          "heapUsed": 4.39,
+          "heapTotal": 36.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 152.61,
+          "heapUsed": 41.43,
+          "heapTotal": 74.34,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 160.11,
+          "heapUsed": 33.05,
+          "heapTotal": 80.78,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 28.66,
+        "withSortedCopyImmediate": {
+          "rss": 182.02,
+          "heapUsed": 28.2,
+          "heapTotal": 100.61,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 182.06,
+          "heapUsed": 25.92,
+          "heapTotal": 98.42,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": -7.13,
+        "withMapImmediate": {
+          "rss": 185.84,
+          "heapUsed": 34.99,
+          "heapTotal": 101.83,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 185.84,
+          "heapUsed": 24.63,
+          "heapTotal": 93.05,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": -8.42,
+        "beforeCSV": {
+          "rss": 184.08,
+          "heapUsed": 22.88,
+          "heapTotal": 91.28,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 223.86,
+          "heapUsed": 43.01,
+          "heapTotal": 91.67,
+          "external": 11.9,
+          "arrayBuffers": 20.16
+        },
+        "csvHeapDelta": 20.13,
+        "csvExternalDelta": 10.02,
+        "beforeTXT": {
+          "rss": 223.47,
+          "heapUsed": 22.9,
+          "heapTotal": 91.28,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 249.52,
+          "heapUsed": 28.55,
+          "heapTotal": 91.67,
+          "external": 16.37,
+          "arrayBuffers": 29.1
+        },
+        "txtHeapDelta": 5.65,
+        "txtExternalDelta": 14.49,
+        "legacyArrayAndMap": {
+          "rss": 257.14,
+          "heapUsed": 28.48,
+          "heapTotal": 93.83,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "optimizedArrayOnly": {
+          "rss": 255.53,
+          "heapUsed": 26.73,
+          "heapTotal": 92.06,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "retainedContainerHeapSaved": 1.75,
+        "afterRelease": {
+          "rss": 255.41,
+          "heapUsed": 26.35,
+          "heapTotal": 91.67,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    },
+    {
+      "count": 100000,
+      "timeMs": {
+        "constructRecords": 87.24,
+        "classificationMedian": 35.78,
+        "classificationSamples": [
+          38.63,
+          37.42,
+          35.48,
+          34.46,
+          35.78
+        ],
+        "aggregateMedian": 17.43,
+        "aggregateSamples": [
+          27.49,
+          17.36,
+          17.58,
+          17.43,
+          17.29
+        ],
+        "sortCopyMedian": 35.86,
+        "sortCopySamples": [
+          34.91,
+          36.9,
+          35.86
+        ],
+        "keywordFilterMedian": 12.16,
+        "keywordFilterSamples": [
+          12.16,
+          12.37,
+          12.08,
+          12.15,
+          12.45
+        ],
+        "categoryFilterMedian": 3.25,
+        "categoryFilterSamples": [
+          3.25,
+          1.38,
+          3.67,
+          1.44,
+          3.38
+        ],
+        "buildDedupeMap": 27.2,
+        "finalizePipeline": 36.78,
+        "exportCSV": 200.17,
+        "exportCSVSamples": [
+          195.16,
+          209.52,
+          200.21,
+          199.92,
+          200.17
+        ],
+        "exportTXT": 139.56,
+        "exportTXTSamples": [
+          139.56,
+          149.4,
+          127.08,
+          133.79,
+          149.86
+        ]
+      },
+      "output": {
+        "keywordMatches": 5263,
+        "categoryMatches": 3947,
+        "classificationQuality": {
+          "totalRecords": 100000,
+          "confidenceCounts": {
+            "high": 81053,
+            "medium": 1053,
+            "low": 17894
+          },
+          "ruleHits": {
+            "usage.expired": 5000,
+            "source.daily-login": 3948,
+            "source.coin-reward": 47367,
+            "source.explicit-refund": 3948,
+            "usage.fallback": 17894,
+            "source.short-video": 3947,
+            "source.review": 3948,
+            "source.co-branded-card": 3947,
+            "usage.explicit-activity-spend": 1053,
+            "source.daily-checkin": 3948,
+            "source.vip-subscription": 3947,
+            "usage.voucher-or-service": 1053
+          },
+          "sourceFallbackCount": 0,
+          "sourceFallbackAmountMicros": 0,
+          "sourceFallbackPercent": 0,
+          "usageFallbackCount": 17894,
+          "usageFallbackAmountMicros": 44754446,
+          "usageFallbackPercent": 71.64
+        },
+        "csvBytes": 21012444,
+        "txtBytes": 30397106
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 254.63,
+          "heapUsed": 4.45,
+          "heapTotal": 65.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 262.34,
+          "heapUsed": 72.88,
+          "heapTotal": 109.03,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 270.89,
+          "heapUsed": 61.44,
+          "heapTotal": 116.66,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 56.99,
+        "withSortedCopyImmediate": {
+          "rss": 286.72,
+          "heapUsed": 54,
+          "heapTotal": 132.69,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 286.67,
+          "heapUsed": 47.14,
+          "heapTotal": 126.42,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": -14.3,
+        "withMapImmediate": {
+          "rss": 292.5,
+          "heapUsed": 65.41,
+          "heapTotal": 134.28,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 292.5,
+          "heapUsed": 44.54,
+          "heapTotal": 117.17,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": -16.9,
+        "beforeCSV": {
+          "rss": 288.98,
+          "heapUsed": 41.04,
+          "heapTotal": 113.66,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 324.36,
+          "heapUsed": 51,
+          "heapTotal": 114.42,
+          "external": 21.92,
+          "arrayBuffers": 40.21
+        },
+        "csvHeapDelta": 9.96,
+        "csvExternalDelta": 20.04,
+        "beforeTXT": {
+          "rss": 323.59,
+          "heapUsed": 41.05,
+          "heapTotal": 113.66,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 373.77,
+          "heapUsed": 52.71,
+          "heapTotal": 114.42,
+          "external": 30.87,
+          "arrayBuffers": 58.11
+        },
+        "txtHeapDelta": 11.66,
+        "txtExternalDelta": 28.99,
+        "legacyArrayAndMap": {
+          "rss": 389.27,
+          "heapUsed": 52.18,
+          "heapTotal": 118.7,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "optimizedArrayOnly": {
+          "rss": 386.08,
+          "heapUsed": 48.68,
+          "heapTotal": 115.19,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "retainedContainerHeapSaved": 3.5,
+        "afterRelease": {
+          "rss": 385.45,
+          "heapUsed": 47.92,
+          "heapTotal": 114.42,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    }
+  ]
+}

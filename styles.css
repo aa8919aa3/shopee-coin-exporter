@@ -337,6 +337,16 @@
   transform-origin: center;
 }
 
+#shopee-coin-modal-backdrop .chart-slice:focus,
+#shopee-coin-modal-backdrop .chart-legend-item:focus {
+  outline: 2px solid #174ea6;
+  outline-offset: 2px;
+}
+
+#shopee-coin-modal-backdrop .chart-legend-item {
+  cursor: pointer;
+}
+
 #shopee-coin-modal-backdrop .chart-empty-msg {
   color: #999;
   font-size: 14px;
@@ -377,6 +387,83 @@
   overflow-wrap: anywhere;
   color: #263238;
   font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-panel {
+  padding: 14px 16px;
+  border: 1px solid #c8e6c9;
+  border-radius: 10px;
+  background: #f4fbf5;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-panel.has-warning {
+  border-color: #ffe082;
+  background: #fffaf0;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #1b5e20;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-panel.has-warning .classification-quality-title {
+  color: #8a5300;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#shopee-coin-modal-backdrop .quality-metric {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #dfe5e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #37474f;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: inherit;
+}
+
+#shopee-coin-modal-backdrop button.quality-metric:not(:disabled) {
+  cursor: pointer;
+}
+
+#shopee-coin-modal-backdrop .quality-metric span {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+#shopee-coin-modal-backdrop .quality-metric strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+#shopee-coin-modal-backdrop .quality-metric.quality-warning {
+  border-color: #ffb74d;
+  color: #8a5300;
+}
+
+#shopee-coin-modal-backdrop .classification-quality-panel p {
+  margin: 9px 0 0;
+  color: #6c757d;
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  #shopee-coin-modal-backdrop .classification-quality-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Table Section */
@@ -442,6 +529,31 @@
 #shopee-coin-modal-backdrop .badge-expired {
   background: #fff3e0;
   color: #e65100;
+}
+
+#shopee-coin-modal-backdrop .classification-rule {
+  display: inline-block;
+  max-width: 210px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+#shopee-coin-modal-backdrop .classification-rule.confidence-high {
+  color: #1b5e20;
+  background: #e8f5e9;
+}
+
+#shopee-coin-modal-backdrop .classification-rule.confidence-medium {
+  color: #7a4f00;
+  background: #fff8e1;
+}
+
+#shopee-coin-modal-backdrop .classification-rule.confidence-low {
+  color: #b71c1c;
+  background: #ffebee;
 }
 
 #shopee-coin-modal-backdrop .table-pagination {

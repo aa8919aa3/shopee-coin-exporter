@@ -20,12 +20,14 @@ global.document = {
   body: { appendChild() {} }
 };
 
+require('./classification.js');
 require('./api.js');
 require('./filters.js');
 require('./charts.js');
 require('./exporter.js');
 
 const collector = window.ShopeeCoinCollector;
+const classification = window.ShopeeCoinClassification;
 const filters = window.ShopeeCoinFilters;
 const analytics = window.ShopeeCoinAnalytics;
 const exporter = window.ShopeeCoinExporter;
@@ -130,6 +132,9 @@ async function runSize(count) {
   forceGC();
   const afterRecords = memoryMB();
 
+  const classificationRun = timedWithGC(() => classification.classifyRecords(records), 5);
+  const classificationQuality = classification.computeQuality(records);
+  classificationRun.value = null;
   analytics.computeStats(records.slice(0, Math.min(1000, records.length)));
   const aggregation = timed(() => analytics.computeStats(records), 5);
   const stats = aggregation.value;
@@ -204,6 +209,8 @@ async function runSize(count) {
     count,
     timeMs: {
       constructRecords: construction.milliseconds,
+      classificationMedian: classificationRun.milliseconds,
+      classificationSamples: classificationRun.samples,
       aggregateMedian: aggregation.milliseconds,
       aggregateSamples: aggregation.samples,
       sortCopyMedian: sort.milliseconds,
@@ -222,6 +229,7 @@ async function runSize(count) {
     output: {
       keywordMatches,
       categoryMatches,
+      classificationQuality,
       csvBytes,
       txtBytes
     },

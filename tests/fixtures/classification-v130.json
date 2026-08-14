@@ -1,0 +1,107 @@
+{
+  "description": "De-identified structural fixtures derived from the 2026-08-14 classification audit. Titles and order numbers are synthetic.",
+  "usageCases": [
+    {
+      "prefix": "order-live-word",
+      "count": 3,
+      "amounts": [900, 800, 913],
+      "rawName": "Studio Live Audio Interface",
+      "orderPrefix": "ORDER-LIVE",
+      "expectedCategory": "訂單蝦幣折抵",
+      "expectedRuleId": "usage.order-number"
+    },
+    {
+      "prefix": "order-game-word",
+      "count": 2,
+      "amounts": [920, 918],
+      "rawName": "Portable Game Console Bundle",
+      "orderPrefix": "ORDER-GAME",
+      "expectedCategory": "訂單蝦幣折抵",
+      "expectedRuleId": "usage.order-number"
+    },
+    {
+      "prefix": "order-generic",
+      "count": 25,
+      "amounts": [70, 247, 200, 22.1, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 316.9],
+      "rawName": "Generic Marketplace Product",
+      "orderPrefix": "ORDER-GENERIC",
+      "expectedCategory": "訂單蝦幣折抵",
+      "expectedRuleId": "usage.order-number"
+    },
+    {
+      "prefix": "voucher-guest",
+      "count": 6,
+      "amounts": [124, 246, 124, 123, 246, 246],
+      "rawName": "Restaurant 500 Digital Guest Voucher",
+      "expectedCategory": "票券/服務兌換",
+      "expectedRuleId": "usage.voucher-or-service"
+    },
+    {
+      "prefix": "voucher-instant",
+      "count": 1,
+      "amounts": [372],
+      "rawName": "Brand 500 即享券 一次抵用型",
+      "expectedCategory": "票券/服務兌換",
+      "expectedRuleId": "usage.voucher-or-service"
+    },
+    {
+      "prefix": "voucher-digital",
+      "count": 1,
+      "amounts": [148],
+      "rawName": "Group Digital 禮券 600",
+      "expectedCategory": "票券/服務兌換",
+      "expectedRuleId": "usage.voucher-or-service"
+    }
+  ],
+  "refundCases": [
+    {
+      "id": "refund-order-1",
+      "amount": 70,
+      "rawName": "Refunded Product A",
+      "orderSn": "ORDER-GENERIC-1",
+      "expectedRuleId": "source.matched-refund-order"
+    },
+    {
+      "id": "refund-order-2",
+      "amount": 247,
+      "rawName": "Refunded Product B",
+      "orderSn": "ORDER-GENERIC-2",
+      "expectedRuleId": "source.matched-refund-order"
+    },
+    {
+      "id": "refund-order-3",
+      "amount": 200,
+      "rawName": "Refunded Product C",
+      "orderSn": "ORDER-GENERIC-3",
+      "expectedRuleId": "source.matched-refund-order"
+    },
+    {
+      "id": "refund-order-4",
+      "amount": 22.1,
+      "rawName": "Refunded Product D",
+      "orderSn": "ORDER-GENERIC-4",
+      "expectedRuleId": "source.matched-refund-order"
+    },
+    {
+      "id": "refund-title-amount",
+      "amount": 246,
+      "rawName": "Restaurant 500 Digital Guest Voucher",
+      "orderSn": "-",
+      "expectedRuleId": "source.matched-refund-title-amount"
+    }
+  ],
+  "unresolvedSourceCases": [
+    { "id": "unknown-source-1", "amount": 40.8, "rawName": "Unmatched Product Reward A" },
+    { "id": "unknown-source-2", "amount": 23.88, "rawName": "Unmatched Product Reward B" },
+    { "id": "unknown-source-3", "amount": 0.52, "rawName": "Unknown Promotional Credit" }
+  ],
+  "expected": {
+    "usageRecordCount": 38,
+    "usageAmount": 10336,
+    "usageFallbackCount": 0,
+    "usageFallbackPercent": 0,
+    "pairedRefunds": 5,
+    "pairedRefundAmount": 785.1,
+    "remainingSourceFallbackAmount": 65.2
+  }
+}
