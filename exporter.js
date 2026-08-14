@@ -64,7 +64,7 @@ window.ShopeeCoinExporter = (function () {
   }
 
   // Export to TXT
-  function exportTXT(records, summaryStats) {
+  function exportTXT(records, summaryStats, accountSummary) {
     if (!records || records.length === 0) {
       alert('無可匯出的蝦幣紀錄！');
       return;
@@ -76,10 +76,20 @@ window.ShopeeCoinExporter = (function () {
     text += `==================================================\n`;
     text += `匯出時間: ${nowStr}\n`;
     text += `紀錄總筆數: ${records.length} 筆\n`;
+    if (accountSummary) {
+      text += `目前可用蝦幣（官方餘額）: ${accountSummary.availableAmount.toFixed(2)} Coins\n`;
+      if (accountSummary.nextExpiry) {
+        text += `最近到期蝦幣: ${accountSummary.nextExpiry.amount.toFixed(2)} Coins（${accountSummary.nextExpiry.date} 後到期）\n`;
+      }
+    }
     if (summaryStats) {
-      text += `累積獲得蝦幣: +${summaryStats.totalGained.toFixed(2)} Coins\n`;
-      text += `累積折抵使用: -${Math.abs(summaryStats.totalSpent).toFixed(2)} Coins\n`;
-      text += `淨變動蝦幣: ${summaryStats.netCoins >= 0 ? '+' : ''}${summaryStats.netCoins.toFixed(2)} Coins\n`;
+      const latestDate = records[0]?.dateStr?.substring(0, 10) || '-';
+      const earliestDate = records[records.length - 1]?.dateStr?.substring(0, 10) || '-';
+      text += `交易紀錄涵蓋期間: ${earliestDate} 至 ${latestDate}\n`;
+      text += `期間累積獲得蝦幣: +${summaryStats.totalGained.toFixed(2)} Coins\n`;
+      text += `期間累積折抵使用: -${Math.abs(summaryStats.totalSpent).toFixed(2)} Coins\n`;
+      text += `期間淨變動蝦幣: ${summaryStats.netCoins >= 0 ? '+' : ''}${summaryStats.netCoins.toFixed(2)} Coins\n`;
+      text += `註: 期間淨變動不包含期初既有餘額，因此不等於目前可用蝦幣。\n`;
     }
     text += `--------------------------------------------------\n\n`;
 

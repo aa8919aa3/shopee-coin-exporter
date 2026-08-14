@@ -235,6 +235,18 @@
 .stat-card-value.spend { color: #c62828; }
 .stat-card-value.net { color: #ee4d2d; }
 
+.stat-card-primary {
+  border-color: rgba(238, 77, 45, 0.35);
+  background: linear-gradient(135deg, #fff8f5, #ffffff);
+}
+
+.shopee-coin-scope-note {
+  margin: -8px 2px 0;
+  color: #6c757d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 /* Filter Controls Bar */
 .shopee-coin-filter-bar {
   background: #ffffff;

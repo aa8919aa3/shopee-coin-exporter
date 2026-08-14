@@ -1,6 +1,7 @@
 /**
  * Shopee Coin Data Collector API Engine
- * Handles API requests, network interception, DOM fallback parsing, and data normalization.
+ * Handles API requests, DOM fallback parsing, and data normalization.
+ * Uses Shopee's current coin transaction endpoint.
  */
 
 window.ShopeeCoinCollector = (function () {
@@ -15,8 +16,8 @@ window.ShopeeCoinCollector = (function () {
       this.monthKey = this.dateStr.substring(0, 7); // YYYY-MM
       this.title = data.title || '蝦幣變動';
       this.type = data.type || 'gain'; // 'gain' | 'spend' | 'expired'
-      this.amount = Number(data.amount) || 0; // positive for gain, negative or positive for spend depending on context
-      this.displayAmount = data.displayAmount || (this.type === 'spend' ? -Math.abs(this.amount) : Math.abs(this.amount));
+      this.amount = Number(data.amount) || 0;
+      this.displayAmount = data.displayAmount ?? (this.type === 'gain' ? Math.abs(this.amount) : -Math.abs(this.amount));
       this.expiryDate = data.expiryDate || '-';
       this.orderSn = data.orderSn || '-';
       this.category = data.category || this.inferCategory(this.title);
@@ -42,6 +43,7 @@ window.ShopeeCoinCollector = (function () {
       if (title.includes('任務') || title.includes('活動') || title.includes('挑戰')) return '行銷活動/任務';
       if (title.includes('過期') || title.includes('失效')) return '蝦幣過期';
       if (title.includes('退款') || title.includes('退貨') || title.includes('補償')) return '退款/補償';
+      if (title.includes('直播')) return '蝦皮直播';
       return '其他活動';
     }
   }
@@ -52,6 +54,7 @@ window.ShopeeCoinCollector = (function () {
       this.isCollecting = false;
       this.shouldStop = false;
       this.collectedRecords = new Map(); // id -> CoinRecord
+      this.accountSummary = null;
     }
 
     stop() {
@@ -59,120 +62,142 @@ window.ShopeeCoinCollector = (function () {
       this.isCollecting = false;
     }
 
-    // Convert Shopee raw log item to CoinRecord
+    // Fetch the authoritative current balance and expiry buckets.
+    async fetchAccountSummary() {
+      const endpoint = '/api/v4/coin/get_user_coins_summary';
+
+      try {
+        const response = await fetch(endpoint, { credentials: 'include' });
+        if (!response.ok) {
+          console.warn(`[ShopeeCoinCollector] Summary API response HTTP ${response.status}`);
+          return null;
+        }
+
+        const payload = await response.json();
+        if (payload.error && payload.error !== 0) {
+          console.warn('[ShopeeCoinCollector] Summary API error:', payload.error_msg || payload.error);
+          return null;
+        }
+
+        const coins = payload.coins ?? payload.data?.coin_info ?? payload.data?.coins ?? null;
+        if (!coins) {
+          console.warn('[ShopeeCoinCollector] Summary API returned no coin summary.');
+          return null;
+        }
+
+        const expiryItems = Array.isArray(coins.expiry_info?.summary)
+          ? coins.expiry_info.summary.map(item => ({
+              date: `${item.year}-${String(item.month).padStart(2, '0')}-${String(item.day).padStart(2, '0')}`,
+              amount: Number(item.coin_amount ?? item.fe_coin_amount / 100000 ?? 0) || 0
+            })).filter(item => item.amount > 0)
+          : [];
+
+        expiryItems.sort((a, b) => a.date.localeCompare(b.date));
+
+        this.accountSummary = {
+          availableAmount: Number(coins.available_amount ?? coins.fe_available_amount / 100000 ?? 0) || 0,
+          expiryItems,
+          nextExpiry: expiryItems[0] ?? null,
+          fetchedAt: new Date().toISOString()
+        };
+
+        return this.accountSummary;
+      } catch (error) {
+        console.warn('[ShopeeCoinCollector] Failed to fetch account summary:', error);
+        return null;
+      }
+    }
+
+    // Convert a current Shopee coin transaction item to CoinRecord.
     normalizeRawLogItem(item) {
-      // Shopee API returns amount usually in coins or coin units
-      // Coin amount field names in Shopee API can be: coin, amount, coins, coin_amount
-      let rawAmount = item.coin || item.amount || item.coins || item.coin_amount || 0;
-      
-      // If Shopee returns amount in cents (e.g. 100 = 1 coin), handle appropriately if needed
-      // Normally Shopee coin is integer representation or decimal
-      let coinAmount = Number(rawAmount);
-      
-      // Determine type & direction
+      const coinAmount = Number.parseFloat(item.coin_amount ?? item.coin ?? item.amount ?? item.coins ?? 0) || 0;
+      const name = String(item.name ?? item.title ?? item.description ?? item.text ?? item.event_name ?? '').trim();
+      const reason = String(item.info?.reason ?? '').trim();
+      const combinedText = `${name} ${reason}`;
+
       let type = 'gain';
-      if (item.coin_type === 2 || item.type === 2 || coinAmount < 0 || (item.text && item.text.includes('使用'))) {
-        type = 'spend';
-      } else if (item.coin_type === 3 || (item.text && item.text.includes('過期'))) {
+      if (combinedText.includes('過期') || combinedText.includes('失效')) {
         type = 'expired';
+      } else if (
+        coinAmount < 0 ||
+        item.coin_type === 2 ||
+        item.type === 2 ||
+        combinedText.includes('折抵') ||
+        combinedText.includes('使用') ||
+        combinedText.includes('付款')
+      ) {
+        type = 'spend';
       }
 
-      let absAmount = Math.abs(coinAmount);
+      const rawTimestamp = Number(item.ctime ?? item.create_time ?? item.timestamp ?? item.mtime ?? 0);
+      const timestampMs = rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000;
+      const dateObj = rawTimestamp ? new Date(timestampMs) : new Date();
 
-      // Parse timestamp
-      let ts = item.ctime || item.create_time || item.timestamp || item.mtime;
-      let dateObj = ts ? new Date(ts * 1000 > 1e12 ? ts : ts * 1000) : new Date();
-
-      // Expiry Date
-      let expStr = '-';
-      if (item.expiry_time || item.expire_time) {
-        let expTs = item.expiry_time || item.expire_time;
-        let expDate = new Date(expTs * 1000 > 1e12 ? expTs : expTs * 1000);
-        expStr = `${expDate.getFullYear()}-${String(expDate.getMonth()+1).padStart(2,'0')}-${String(expDate.getDate()).padStart(2,'0')}`;
+      let expiryDate = '-';
+      const rawExpiry = Number(item.expiry_time ?? item.expire_time ?? 0);
+      if (rawExpiry) {
+        const expiryMs = rawExpiry > 1e12 ? rawExpiry : rawExpiry * 1000;
+        const expiry = new Date(expiryMs);
+        expiryDate = `${expiry.getFullYear()}-${String(expiry.getMonth() + 1).padStart(2, '0')}-${String(expiry.getDate()).padStart(2, '0')}`;
       }
 
-      // Order SN
-      let orderSn = item.order_sn || item.ordersn || item.order_id || '-';
-
-      // Title/Description
-      let title = item.description || item.title || item.text || item.event_name || '蝦幣變動';
+      const title = name || reason || '蝦幣變動';
+      const fullTitle = reason && reason !== title ? `${title} - ${reason}` : title;
+      const orderSn = item.order_sn ?? item.ordersn ?? item.order_id ?? '-';
+      const absAmount = Math.abs(coinAmount);
 
       return new CoinRecord({
-        id: item.id || item.transaction_id || `${dateObj.getTime()}_${title}_${absAmount}`,
+        id: String(item.id ?? item.transaction_id ?? `${dateObj.getTime()}_${fullTitle}_${absAmount}`),
         timestamp: dateObj.toISOString(),
-        title: title,
-        type: type,
+        title: fullTitle,
+        type,
         amount: absAmount,
-        displayAmount: type === 'spend' || type === 'expired' ? -absAmount : absAmount,
-        expiryDate: expStr,
-        orderSn: orderSn,
+        displayAmount: type === 'gain' ? absAmount : -absAmount,
+        expiryDate,
+        orderSn: orderSn && orderSn !== 0 ? String(orderSn) : '-',
         raw: item
       });
     }
 
-    // Try fetching via Shopee's internal REST API endpoints
+    // Fetch all pages through Shopee's current REST API endpoint.
     async fetchViaAPI(progressCallback) {
       this.isCollecting = true;
       this.shouldStop = false;
 
-      const endpoints = [
-        '/api/v4/coin/get_user_coin_log',
-        '/api/v2/coin/get_coin_log',
-        '/api/v4/coin/get_coin_log_list'
-      ];
-
-      let successfulEndpoint = null;
+      const endpoint = '/api/v4/coin/get_user_coin_transaction_list';
+      const limit = 20;
       let offset = 0;
-      const limit = 50;
-      let totalFetched = 0;
       let hasMore = true;
+      let requestSucceeded = false;
 
-      // Find working endpoint
-      for (const ep of endpoints) {
-        try {
-          const testUrl = `${ep}?limit=10&offset=0&type=0`;
-          const resp = await fetch(testUrl, { credentials: 'include' });
-          if (resp.ok) {
-            const json = await resp.json();
-            if (json && (json.data || json.list || json.error === 0)) {
-              successfulEndpoint = ep;
-              break;
-            }
-          }
-        } catch (e) {
-          console.warn(`[ShopeeCoinCollector] Endpoint ${ep} test failed:`, e);
-        }
-      }
+      console.log(`[ShopeeCoinCollector] Using API endpoint: ${endpoint}`);
 
-      if (!successfulEndpoint) {
-        console.warn('[ShopeeCoinCollector] Direct API endpoints failed/blocked. Trying DOM fallback...');
-        return false;
-      }
+      try {
+        await this.fetchAccountSummary();
 
-      console.log(`[ShopeeCoinCollector] Using API endpoint: ${successfulEndpoint}`);
-
-      while (hasMore && !this.shouldStop) {
-        try {
-          const apiUrl = `${successfulEndpoint}?limit=${limit}&offset=${offset}&type=0`;
+        while (hasMore && !this.shouldStop) {
+          const apiUrl = `${endpoint}?type=all&offset=${offset}&limit=${limit}`;
           const response = await fetch(apiUrl, { credentials: 'include' });
-          
+
           if (!response.ok) {
-            console.error(`API response HTTP ${response.status}`);
+            console.error(`[ShopeeCoinCollector] API response HTTP ${response.status}`);
             break;
           }
 
           const resData = await response.json();
-          let items = [];
-          
-          if (resData.data) {
-            items = resData.data.list || resData.data.item || resData.data.logs || resData.data.items || [];
-            hasMore = resData.data.has_more !== undefined ? resData.data.has_more : (items.length === limit);
-          } else if (resData.list) {
-            items = resData.list;
-            hasMore = resData.has_more !== undefined ? resData.has_more : (items.length === limit);
-          } else {
-            hasMore = false;
+          if (resData.error && resData.error !== 0) {
+            console.error('[ShopeeCoinCollector] API error:', resData.error_msg || resData.error);
+            break;
           }
+
+          requestSucceeded = true;
+
+          const items =
+            (Array.isArray(resData.items) && resData.items) ||
+            (Array.isArray(resData.data?.items) && resData.data.items) ||
+            (Array.isArray(resData.data?.coin_transactions) && resData.data.coin_transactions) ||
+            (Array.isArray(resData.data?.list) && resData.data.list) ||
+            [];
 
           if (items.length === 0) {
             hasMore = false;
@@ -180,69 +205,75 @@ window.ShopeeCoinCollector = (function () {
           }
 
           for (const item of items) {
-            const rec = this.normalizeRawLogItem(item);
-            this.collectedRecords.set(rec.id, rec);
+            const record = this.normalizeRawLogItem(item);
+            this.collectedRecords.set(record.id, record);
           }
 
           offset += items.length;
-          totalFetched = this.collectedRecords.size;
+          const explicitHasMore = resData.has_more ?? resData.data?.has_more;
+          hasMore = explicitHasMore === undefined ? items.length === limit : Boolean(explicitHasMore);
 
           if (progressCallback) {
             progressCallback({
               status: 'fetching',
-              fetchedCount: totalFetched,
-              hasMore: hasMore,
-              records: this.getRecordsArray()
+              fetchedCount: this.collectedRecords.size,
+              hasMore,
+              records: this.getRecordsArray(),
+              accountSummary: this.accountSummary
             });
           }
 
-          // Respectful throttle delay between pagination calls
-          await new Promise(r => setTimeout(r, 250));
-
-        } catch (err) {
-          console.error('[ShopeeCoinCollector] Error fetching API page:', err);
-          break;
+          if (hasMore && !this.shouldStop) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
+      } catch (error) {
+        console.error('[ShopeeCoinCollector] Error fetching API page:', error);
+      } finally {
+        this.isCollecting = false;
       }
 
-      this.isCollecting = false;
-      return true;
+      return requestSucceeded;
     }
 
-    // DOM Scraper Fallback
+    // DOM scraper fallback for the current Shopee coin-history page.
     scrapeFromDOM() {
-      const items = document.querySelectorAll('.coin-history-item, .shopee-coin-log-item, tr.coin-row, div[class*="coin-history"], div[class*="CoinHistory"]');
-      let countBefore = this.collectedRecords.size;
+      const items = document.querySelectorAll(
+        '.Majt3V, .coin-history-item, .shopee-coin-log-item, tr.coin-row, div[class*="coin-history"], div[class*="CoinHistory"]'
+      );
+      const countBefore = this.collectedRecords.size;
 
-      items.forEach((el, index) => {
+      items.forEach((element, index) => {
         try {
-          const titleEl = el.querySelector('.title, .description, [class*="title"], [class*="desc"]');
-          const dateEl = el.querySelector('.date, .time, [class*="date"], [class*="time"]');
-          const amountEl = el.querySelector('.amount, .coins, [class*="amount"], [class*="coin"]');
+          const titleElement = element.querySelector('.WYcY3j, .title, [class*="title"]');
+          const descriptionElement = element.querySelector('.Xvdd6G, .description, [class*="desc"]');
+          const dateElement = element.querySelector('.uunn, .date, .time, [class*="date"], [class*="time"]');
+          const amountElement = element.querySelector('.jClYSy, .amount, .coins, [class*="amount"]');
 
-          const title = titleEl ? titleEl.innerText.trim() : `紀錄 ${index + 1}`;
-          const dateText = dateEl ? dateEl.innerText.trim() : new Date().toLocaleDateString();
-          const amountText = amountEl ? amountEl.innerText.trim() : '0';
+          const title = titleElement?.innerText.trim() || `紀錄 ${index + 1}`;
+          const description = descriptionElement?.innerText.trim() || '';
+          const dateText = dateElement?.innerText.trim() || new Date().toLocaleDateString();
+          const amountText = amountElement?.innerText.trim() || '0';
+          const coinAmount = Number.parseFloat(amountText.replace(/[^\d.-]/g, '')) || 0;
+          const combinedText = `${title} ${description}`;
+          const isExpired = combinedText.includes('過期') || combinedText.includes('失效');
+          const isSpend = coinAmount < 0 || combinedText.includes('折抵') || combinedText.includes('使用');
+          const absAmount = Math.abs(coinAmount);
+          const recordId = `dom_${dateText}_${combinedText}_${absAmount}`;
 
-          const isSpend = amountText.includes('-') || amountText.includes('使用') || title.includes('折抵');
-          const cleanAmount = Math.abs(parseFloat(amountText.replace(/[^\d.-]/g, '')) || 0);
-
-          const recId = `dom_${dateText}_${title}_${cleanAmount}`;
-
-          if (!this.collectedRecords.has(recId)) {
-            const record = new CoinRecord({
-              id: recId,
+          if (!this.collectedRecords.has(recordId)) {
+            this.collectedRecords.set(recordId, new CoinRecord({
+              id: recordId,
               timestamp: new Date().toISOString(),
               dateStr: dateText,
-              title: title,
-              type: isSpend ? 'spend' : 'gain',
-              amount: cleanAmount,
-              displayAmount: isSpend ? -cleanAmount : cleanAmount
-            });
-            this.collectedRecords.set(recId, record);
+              title: description ? `${title} - ${description}` : title,
+              type: isExpired ? 'expired' : (isSpend ? 'spend' : 'gain'),
+              amount: absAmount,
+              displayAmount: isExpired || isSpend ? -absAmount : absAmount
+            }));
           }
-        } catch (e) {
-          console.error('Error parsing DOM item:', e);
+        } catch (error) {
+          console.error('[ShopeeCoinCollector] Error parsing DOM item:', error);
         }
       });
 
@@ -250,13 +281,17 @@ window.ShopeeCoinCollector = (function () {
     }
 
     getRecordsArray() {
-      const arr = Array.from(this.collectedRecords.values());
-      // Sort descending by timestamp / dateStr
-      return arr.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      return Array.from(this.collectedRecords.values())
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+
+    getAccountSummary() {
+      return this.accountSummary;
     }
 
     clear() {
       this.collectedRecords.clear();
+      this.accountSummary = null;
     }
   }
 

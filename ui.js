@@ -11,6 +11,7 @@ window.ShopeeCoinUI = (function () {
   let currentPage = 1;
   let pageSize = 15;
   let summaryStats = null;
+  let accountSummary = null;
 
   // Inject Floating Launcher Button
   function injectFloatButton() {
@@ -64,16 +65,24 @@ window.ShopeeCoinUI = (function () {
 
           <!-- Summary Metric Cards -->
           <div class="shopee-coin-stats-grid">
+            <div class="stat-card stat-card-primary">
+              <span class="stat-card-title">目前可用蝦幣（官方餘額）</span>
+              <span class="stat-card-value net" id="stat-available-coins">--</span>
+            </div>
             <div class="stat-card">
-              <span class="stat-card-title">累積獲得蝦幣</span>
+              <span class="stat-card-title" id="stat-next-expiry-label">最近到期蝦幣</span>
+              <span class="stat-card-value spend" id="stat-next-expiry">--</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-title">最近一年獲得</span>
               <span class="stat-card-value gain" id="stat-total-gained">+0.00</span>
             </div>
             <div class="stat-card">
-              <span class="stat-card-title">累積折抵/使用</span>
+              <span class="stat-card-title">最近一年折抵/使用</span>
               <span class="stat-card-value spend" id="stat-total-spent">-0.00</span>
             </div>
             <div class="stat-card">
-              <span class="stat-card-title">淨累積變動</span>
+              <span class="stat-card-title">最近一年淨變動</span>
               <span class="stat-card-value net" id="stat-net-coins">0.00</span>
             </div>
             <div class="stat-card">
@@ -81,6 +90,9 @@ window.ShopeeCoinUI = (function () {
               <span class="stat-card-value" id="stat-total-count">0 筆</span>
             </div>
           </div>
+          <p class="shopee-coin-scope-note" id="history-scope-note">
+            交易歷史淨變動僅依 API 可取得期間計算，不代表目前可用餘額。
+          </p>
 
           <!-- Charts Grid -->
           <div class="shopee-coin-charts-grid">
@@ -178,11 +190,11 @@ window.ShopeeCoinUI = (function () {
     document.getElementById('btn-stop-fetch').addEventListener('click', stopCollecting);
 
     document.getElementById('btn-export-csv').addEventListener('click', () => {
-      ShopeeCoinExporter.exportCSV(filteredRecords, summaryStats);
+      ShopeeCoinExporter.exportCSV(filteredRecords, summaryStats, accountSummary);
     });
 
     document.getElementById('btn-export-txt').addEventListener('click', () => {
-      ShopeeCoinExporter.exportTXT(filteredRecords, summaryStats);
+      ShopeeCoinExporter.exportTXT(filteredRecords, summaryStats, accountSummary);
     });
 
     // Filters
@@ -231,11 +243,12 @@ window.ShopeeCoinUI = (function () {
     banner.style.display = 'flex';
     statusText.innerText = '正在自動抓取蝦幣紀錄中... (已讀取 0 筆)';
 
+    accountSummary = null;
     ShopeeCoinCollector.APIClient.clear();
 
     const success = await ShopeeCoinCollector.APIClient.fetchViaAPI((progress) => {
       statusText.innerText = `正在抓取蝦幣紀錄中... 已成功取得 ${progress.fetchedCount} 筆`;
-      updateData(progress.records);
+      updateData(progress.records, progress.accountSummary);
     });
 
     if (!success) {
@@ -250,7 +263,10 @@ window.ShopeeCoinUI = (function () {
       banner.style.display = 'none';
     }, 4000);
 
-    updateData(ShopeeCoinCollector.APIClient.getRecordsArray());
+    updateData(
+      ShopeeCoinCollector.APIClient.getRecordsArray(),
+      ShopeeCoinCollector.APIClient.getAccountSummary()
+    );
   }
 
   function stopCollecting() {
@@ -260,15 +276,35 @@ window.ShopeeCoinUI = (function () {
   }
 
   // Update Data and Re-render Dashboard
-  function updateData(records) {
+  function updateData(records, latestAccountSummary = accountSummary) {
     currentRecords = records || [];
+    accountSummary = latestAccountSummary || accountSummary;
     summaryStats = ShopeeCoinAnalytics.computeStats(currentRecords);
 
     // Update Metric Cards
+    document.getElementById('stat-available-coins').innerText = accountSummary
+      ? accountSummary.availableAmount.toFixed(2)
+      : '--';
+
+    const nextExpiry = accountSummary?.nextExpiry;
+    document.getElementById('stat-next-expiry').innerText = nextExpiry
+      ? nextExpiry.amount.toFixed(2)
+      : '--';
+    document.getElementById('stat-next-expiry-label').innerText = nextExpiry
+      ? `${nextExpiry.date} 後到期`
+      : '最近到期蝦幣';
+
     document.getElementById('stat-total-gained').innerText = `+${summaryStats.totalGained.toFixed(2)}`;
     document.getElementById('stat-total-spent').innerText = `-${Math.abs(summaryStats.totalSpent).toFixed(2)}`;
     document.getElementById('stat-net-coins').innerText = `${summaryStats.netCoins >= 0 ? '+' : ''}${summaryStats.netCoins.toFixed(2)}`;
     document.getElementById('stat-total-count').innerText = `${summaryStats.totalRecords} 筆`;
+
+    const historyNote = document.getElementById('history-scope-note');
+    if (historyNote && currentRecords.length > 0) {
+      const latestDate = currentRecords[0].dateStr.substring(0, 10);
+      const earliestDate = currentRecords[currentRecords.length - 1].dateStr.substring(0, 10);
+      historyNote.innerText = `交易 API 可取得範圍：${earliestDate} 至 ${latestDate}。最近一年淨變動不包含期初既有餘額，因此不等於目前可用蝦幣。`;
+    }
 
     // Render Charts
     ShopeeCoinAnalytics.renderMonthlyBarChart(
