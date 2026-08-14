@@ -85,6 +85,33 @@ async function testCompleteFetchAndExactStats() {
   assert.equal(Math.round(stats.usageCategoryList.reduce((sum, item) => sum + item.total, 0) * collector.COIN_SCALE), 35000);
 }
 
+function testRefundsExcludedFromGainedButIncludedInNetChange() {
+  const timestampMs = Date.UTC(2026, 7, 14);
+  const records = [
+    new collector.CoinRecord({ id: 'earned', timestampMs, title: '活動獎勵', type: 'gain', category: '蝦幣獎勵', amountMicros: collector.coinsToMicros(100) }),
+    new collector.CoinRecord({ id: 'refund', timestampMs, title: '訂單取消', type: 'gain', category: '退款/沖正', amountMicros: collector.coinsToMicros(30) }),
+    new collector.CoinRecord({ id: 'spent', timestampMs, title: '訂單折抵', type: 'spend', category: '訂單蝦幣折抵', amountMicros: collector.coinsToMicros(20) }),
+    new collector.CoinRecord({ id: 'expired', timestampMs, title: '蝦幣過期', type: 'expired', category: '蝦幣過期', amountMicros: collector.coinsToMicros(5) })
+  ];
+
+  const stats = analytics.computeStats(records);
+  assert.equal(stats.totalGained, 100, 'refunds must be excluded from actual gained coins');
+  assert.equal(stats.totalRefunded, 30);
+  assert.equal(stats.totalCredited, 130);
+  assert.equal(stats.periodNetChange, 105, 'refunds must still affect account reconciliation');
+  assert.equal(stats.sourceCategoryList.some(item => item.category === '退款/沖正'), false);
+  assert.equal(stats.sourceCategoryList.reduce((sum, item) => sum + item.total, 0), 100);
+  assert.equal(stats.monthlyList[0].gain, 100);
+  assert.equal(stats.monthlyList[0].refunded, 30);
+
+  const quality = classification.computeQuality([
+    new collector.CoinRecord({ id: 'fallback-source', timestampMs, title: '未知來源', type: 'gain', category: '其他來源', categoryRuleId: 'source.fallback', categoryConfidence: 'low', amountMicros: collector.coinsToMicros(10) }),
+    new collector.CoinRecord({ id: 'large-refund', timestampMs, title: '訂單取消', type: 'gain', category: '退款/沖正', categoryRuleId: 'source.matched-refund-order', categoryConfidence: 'high', amountMicros: collector.coinsToMicros(90) })
+  ]);
+  assert.equal(quality.sourceTotalAmountMicros, collector.coinsToMicros(10));
+  assert.equal(quality.sourceFallbackPercent, 100, 'refunds must not dilute the other-source quality percentage');
+}
+
 async function testPartialAndRejectedRecords() {
   const client = new collector.APIClient.constructor();
   global.fetch = async url => {
@@ -355,6 +382,7 @@ async function testCSVFormulaNeutralization() {
 
 async function main() {
   await testCompleteFetchAndExactStats();
+  testRefundsExcludedFromGainedButIncludedInNetChange();
   await testPartialAndRejectedRecords();
   await testStopActuallyAborts();
   await testClearDoesNotResurrectOldData();

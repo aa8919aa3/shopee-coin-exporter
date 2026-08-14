@@ -230,7 +230,13 @@
   color: #212529;
 }
 
-#shopee-coin-modal-backdrop .stat-card-value.gain { color: #2e7d32; }
+#shopee-coin-modal-backdrop .stat-card-value.gain {
+  color: #00a650;
+}
+
+#shopee-coin-modal-backdrop .stat-card-value.refund {
+  color: #7e57c2;
+}
 #shopee-coin-modal-backdrop .stat-card-value.spend { color: #c62828; }
 #shopee-coin-modal-backdrop .stat-card-value.net { color: #ee4d2d; }
 

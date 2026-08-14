@@ -215,6 +215,7 @@ window.ShopeeCoinClassification = (function () {
       ruleHits[ruleId] = (ruleHits[ruleId] || 0) + 1;
 
       if (record?.type === 'gain') {
+        if (record.category === '退款/沖正') return;
         sourceAmountMicros += amountMicros;
         if (record.category === '其他來源') {
           sourceFallbackCount += 1;
@@ -234,6 +235,8 @@ window.ShopeeCoinClassification = (function () {
       totalRecords: source.length,
       confidenceCounts,
       ruleHits,
+      sourceTotalAmountMicros: sourceAmountMicros,
+      usageTotalAmountMicros: usageAmountMicros,
       sourceFallbackCount,
       sourceFallbackAmountMicros,
       sourceFallbackPercent: percent(sourceFallbackAmountMicros, sourceAmountMicros),

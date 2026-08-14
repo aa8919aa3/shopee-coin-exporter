@@ -161,11 +161,12 @@ window.ShopeeCoinExporter = (function () {
       const latest = Number.isFinite(stats.latestTimestampMs) ? new Date(stats.latestTimestampMs).toLocaleDateString('zh-TW') : '-';
       lines.push(
         `交易紀錄涵蓋期間: ${earliest} 至 ${latest}`,
-        `期間累積獲得蝦幣: +${stats.totalGained.toFixed(2)} Coins`,
+        `期間實際獲得蝦幣（不含退款／沖正）: +${stats.totalGained.toFixed(2)} Coins`,
+        `期間退款／沖正: +${stats.totalRefunded.toFixed(2)} Coins`,
         `期間累積折抵使用: -${stats.totalSpent.toFixed(2)} Coins`,
         `期間累積過期: -${stats.totalExpired.toFixed(2)} Coins`,
         `期間淨變動蝦幣: ${stats.periodNetChange >= 0 ? '+' : ''}${stats.periodNetChange.toFixed(2)} Coins`,
-        '註: 期間淨變動不包含期初既有餘額，因此不等於目前可用蝦幣。',
+        '註: 期間淨變動會納入退款／沖正，但不包含期初既有餘額，因此不等於目前可用蝦幣。',
         '--------------------------------------------------',
         '',
         '[ 蝦幣詳細紀錄列表 ]',

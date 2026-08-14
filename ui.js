@@ -108,7 +108,8 @@ window.ShopeeCoinUI = (function () {
           <div class="shopee-coin-stats-grid">
             <div class="stat-card stat-card-primary"><span class="stat-card-title">目前可用蝦幣（官方餘額）</span><span class="stat-card-value net" id="stat-available-coins">--</span></div>
             <div class="stat-card"><span class="stat-card-title" id="stat-next-expiry-label">最近到期蝦幣</span><span class="stat-card-value spend" id="stat-next-expiry">--</span></div>
-            <div class="stat-card"><span class="stat-card-title">期間獲得</span><span class="stat-card-value gain" id="stat-total-gained">+0.00</span></div>
+            <div class="stat-card"><span class="stat-card-title">期間實際獲得（不含退款）</span><span class="stat-card-value gain" id="stat-total-gained">+0.00</span></div>
+            <div class="stat-card"><span class="stat-card-title">期間退款／沖正</span><span class="stat-card-value refund" id="stat-total-refunded">+0.00</span></div>
             <div class="stat-card"><span class="stat-card-title">期間折抵／使用</span><span class="stat-card-value spend" id="stat-total-spent">-0.00</span></div>
             <div class="stat-card"><span class="stat-card-title">期間過期</span><span class="stat-card-value spend" id="stat-total-expired">-0.00</span></div>
             <div class="stat-card"><span class="stat-card-title">期間淨變動</span><span class="stat-card-value net" id="stat-net-coins">0.00</span></div>
@@ -116,8 +117,8 @@ window.ShopeeCoinUI = (function () {
           </div>
           <p class="shopee-coin-scope-note" id="history-scope-note">交易期間淨變動不代表目前可用餘額。</p>
           <div class="shopee-coin-charts-grid">
-            <div class="chart-card chart-card-wide"><div class="chart-card-title">📊 近期月份獲得、折抵與過期趨勢</div><div class="chart-container" id="monthly-bar-chart-container"></div></div>
-            <div class="chart-card"><div class="chart-card-title">🍩 蝦幣來源分類佔比</div><div class="chart-container" id="source-category-donut-chart-container"></div></div>
+            <div class="chart-card chart-card-wide"><div class="chart-card-title">📊 近期月份實際獲得、退款、折抵與過期趨勢</div><div class="chart-container" id="monthly-bar-chart-container"></div></div>
+            <div class="chart-card"><div class="chart-card-title">🍩 蝦幣來源分類佔比（不含退款）</div><div class="chart-container" id="source-category-donut-chart-container"></div></div>
             <div class="chart-card"><div class="chart-card-title">🍩 蝦幣使用分類佔比</div><div class="chart-container" id="usage-category-donut-chart-container"></div></div>
           </div>
           <div class="shopee-coin-filter-bar">
@@ -335,6 +336,7 @@ window.ShopeeCoinUI = (function () {
     setText('stat-next-expiry', nextExpiry ? formatCoins(nextExpiry.amount) : '--');
     setText('stat-next-expiry-label', nextExpiry ? `${nextExpiry.date} 後到期` : '最近到期蝦幣');
     setText('stat-total-gained', `+${formatCoins(summaryStats.totalGained)}`);
+    setText('stat-total-refunded', `+${formatCoins(summaryStats.totalRefunded)}`);
     setText('stat-total-spent', `-${formatCoins(summaryStats.totalSpent)}`);
     setText('stat-total-expired', `-${formatCoins(summaryStats.totalExpired)}`);
     setText('stat-net-coins', `${summaryStats.periodNetChange >= 0 ? '+' : ''}${formatCoins(summaryStats.periodNetChange)}`);
@@ -352,7 +354,7 @@ window.ShopeeCoinUI = (function () {
           const inferredOpening = accountSummary.availableAmount - summaryStats.periodNetChange;
           reconciliation = ` 官方餘額 ${formatCoins(accountSummary.availableAmount)} = 推估期初餘額 ${formatCoins(inferredOpening)} + 期間淨變動 ${summaryStats.periodNetChange >= 0 ? '+' : ''}${formatCoins(summaryStats.periodNetChange)}。`;
         }
-        scopeNote.textContent = `${completeLabel}：${earliest} 至 ${latest}。期間淨變動不含期初既有餘額，因此不等於目前餘額。${reconciliation}`;
+        scopeNote.textContent = `${completeLabel}：${earliest} 至 ${latest}。實際獲得不含退款／沖正；期間淨變動仍納入退款，且不含期初既有餘額，因此不等於目前餘額。${reconciliation}`;
       } else {
         scopeNote.textContent = `${completeLabel}；沒有可用的交易日期範圍。`;
       }
@@ -362,7 +364,7 @@ window.ShopeeCoinUI = (function () {
     ShopeeCoinAnalytics.renderCategoryDonutChart(
       document.getElementById('source-category-donut-chart-container'),
       summaryStats.sourceCategoryList,
-      { centerLabel: '獲得總量', emptyMessage: '尚無蝦幣來源資料', onSelectCategory: category => selectCategoryFromChart(category, 'gain') }
+      { centerLabel: '實際獲得', emptyMessage: '尚無蝦幣來源資料', onSelectCategory: category => selectCategoryFromChart(category, 'gain') }
     );
     ShopeeCoinAnalytics.renderCategoryDonutChart(
       document.getElementById('usage-category-donut-chart-container'),
@@ -392,7 +394,7 @@ window.ShopeeCoinUI = (function () {
       usageButton.classList.toggle('quality-warning', quality.usageFallbackPercent > 5);
     }
     setText('quality-low-confidence', `${quality.confidenceCounts.low} 筆`);
-    setText('quality-paired-refunds', `${result?.pairedRefunds || 0} 筆`);
+    setText('quality-paired-refunds', `${result?.pairedRefunds || 0} 筆／${formatCoins(microsToCoins(result?.pairedRefundAmountMicros))}`);
     const hasWarning = quality.sourceFallbackPercent > 5 || quality.usageFallbackPercent > 5;
     panel.classList.toggle('has-warning', hasWarning);
     setText('classification-quality-state', hasWarning ? '需要檢視' : '分類正常');

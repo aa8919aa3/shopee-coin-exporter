@@ -35,3 +35,28 @@ for row in sorted(other_source, key=lambda item: abs(float(item['蝦幣數量'])
     for counterpart in by_title_amount[(row['項目說明'], amount)]:
         if counterpart is not row:
             print('  TITLE_AMOUNT', counterpart['變動類型'], counterpart['蝦幣數量'], counterpart['分類'], counterpart.get('訂單編號', ''))
+
+refunds = [row for row in rows if row.get('分類') == '退款/沖正']
+print(f'\nrefunds={len(refunds)} refund_amount={sum(abs(float(row["蝦幣數量"])) for row in refunds):.2f}')
+for row in sorted(refunds, key=lambda item: abs(float(item['蝦幣數量'])), reverse=True):
+    amount = abs(float(row['蝦幣數量']))
+    order_sn = row.get('訂單編號', '')
+    if row.get('分類規則') == 'source.matched-refund-order':
+        counterparts = [
+            item for item in by_order[order_sn]
+            if item['變動類型'] == '使用/折抵' and abs(float(item['蝦幣數量'])) == amount
+        ]
+        match_type = 'order+amount'
+    else:
+        counterparts = [
+            item for item in by_title_amount[(row['項目說明'], amount)]
+            if item['變動類型'] == '使用/折抵'
+        ]
+        match_type = 'title+amount'
+    print(
+        'REFUND',
+        f'{amount:.2f}',
+        match_type,
+        f'counterparts={len(counterparts)}',
+        row.get('分類規則', ''),
+    )

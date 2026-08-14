@@ -30,6 +30,7 @@ window.ShopeeCoinAnalytics = (function () {
 
   function computeStats(records) {
     let totalGainedMicros = 0;
+    let totalRefundedMicros = 0;
     let totalSpentMicros = 0;
     let totalExpiredMicros = 0;
     let invalidRecords = 0;
@@ -56,20 +57,27 @@ window.ShopeeCoinAnalytics = (function () {
       const month = typeof dateStr === 'string' && dateStr.length >= 7 && dateStr[4] === '-'
         ? dateStr.substring(0, 7)
         : '其他';
-      if (!monthlyMap.has(month)) monthlyMap.set(month, { gainMicros: 0, spendMicros: 0, expiredMicros: 0 });
+      if (!monthlyMap.has(month)) monthlyMap.set(month, { gainMicros: 0, refundedMicros: 0, spendMicros: 0, expiredMicros: 0 });
       const monthData = monthlyMap.get(month);
 
       const category = String(record.category || '其他');
       if (!categoryMap.has(category)) {
-        categoryMap.set(category, { gainMicros: 0, spendMicros: 0, expiredMicros: 0, gainCount: 0, spendCount: 0, expiredCount: 0 });
+        categoryMap.set(category, { gainMicros: 0, refundedMicros: 0, spendMicros: 0, expiredMicros: 0, gainCount: 0, refundCount: 0, spendCount: 0, expiredCount: 0 });
       }
       const categoryData = categoryMap.get(category);
 
       if (record.type === 'gain') {
-        totalGainedMicros += amountMicros;
-        monthData.gainMicros += amountMicros;
-        categoryData.gainMicros += amountMicros;
-        categoryData.gainCount += 1;
+        if (category === '退款/沖正') {
+          totalRefundedMicros += amountMicros;
+          monthData.refundedMicros += amountMicros;
+          categoryData.refundedMicros += amountMicros;
+          categoryData.refundCount += 1;
+        } else {
+          totalGainedMicros += amountMicros;
+          monthData.gainMicros += amountMicros;
+          categoryData.gainMicros += amountMicros;
+          categoryData.gainCount += 1;
+        }
       } else if (record.type === 'spend') {
         totalSpentMicros += amountMicros;
         monthData.spendMicros += amountMicros;
@@ -83,29 +91,33 @@ window.ShopeeCoinAnalytics = (function () {
       }
     });
 
-    const periodNetChangeMicros = totalGainedMicros - totalSpentMicros - totalExpiredMicros;
+    const totalCreditedMicros = totalGainedMicros + totalRefundedMicros;
+    const periodNetChangeMicros = totalCreditedMicros - totalSpentMicros - totalExpiredMicros;
     const monthlyList = Array.from(monthlyMap.keys()).sort().map(month => {
       const data = monthlyMap.get(month);
       return {
         month,
         gain: microsToCoins(data.gainMicros),
+        refunded: microsToCoins(data.refundedMicros),
         spend: microsToCoins(data.spendMicros),
         expired: microsToCoins(data.expiredMicros)
       };
     });
 
     const categoryList = Array.from(categoryMap.entries()).map(([category, data]) => {
-      const totalMicros = data.gainMicros + data.spendMicros + data.expiredMicros;
+      const totalMicros = data.gainMicros + data.refundedMicros + data.spendMicros + data.expiredMicros;
       return {
         category,
         gain: microsToCoins(data.gainMicros),
+        refunded: microsToCoins(data.refundedMicros),
         spend: microsToCoins(data.spendMicros),
         expired: microsToCoins(data.expiredMicros),
         total: microsToCoins(totalMicros),
         gainCount: data.gainCount,
+        refundCount: data.refundCount,
         spendCount: data.spendCount,
         expiredCount: data.expiredCount,
-        count: data.gainCount + data.spendCount + data.expiredCount
+        count: data.gainCount + data.refundCount + data.spendCount + data.expiredCount
       };
     }).sort((a, b) => b.total - a.total);
 
@@ -129,10 +141,14 @@ window.ShopeeCoinAnalytics = (function () {
       validRecords: (Array.isArray(records) ? records.length : 0) - invalidRecords,
       invalidRecords,
       totalGainedMicros,
+      totalRefundedMicros,
+      totalCreditedMicros,
       totalSpentMicros,
       totalExpiredMicros,
       periodNetChangeMicros,
       totalGained: microsToCoins(totalGainedMicros),
+      totalRefunded: microsToCoins(totalRefundedMicros),
+      totalCredited: microsToCoins(totalCreditedMicros),
       totalSpent: microsToCoins(totalSpentMicros),
       totalExpired: microsToCoins(totalExpiredMicros),
       periodNetChange: microsToCoins(periodNetChangeMicros),
@@ -162,10 +178,10 @@ window.ShopeeCoinAnalytics = (function () {
     const padding = { top: 30, right: 20, bottom: 40, left: 50 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
-    const maxValue = Math.max(1, ...displayData.flatMap(item => [item.gain, item.spend, item.expired]));
+    const maxValue = Math.max(1, ...displayData.flatMap(item => [item.gain, item.refunded, item.spend, item.expired]));
     const scaleMax = Math.ceil(maxValue * 1.15);
     const groupWidth = chartWidth / displayData.length;
-    const barWidth = Math.min(16, groupWidth * 0.24);
+    const barWidth = Math.min(14, groupWidth * 0.2);
 
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" xmlns="http://www.w3.org/2000/svg">`;
     for (let index = 0; index <= 4; index += 1) {
@@ -178,9 +194,10 @@ window.ShopeeCoinAnalytics = (function () {
     displayData.forEach((item, index) => {
       const groupX = padding.left + index * groupWidth + groupWidth / 2;
       const values = [
-        { value: item.gain, color: '#ee4d2d', label: '獲得', x: groupX - barWidth * 1.5 - 2 },
-        { value: item.spend, color: '#26a69a', label: '折抵', x: groupX - barWidth / 2 },
-        { value: item.expired, color: '#f9a825', label: '過期', x: groupX + barWidth / 2 + 2 }
+        { value: item.gain, color: '#ee4d2d', label: '實際獲得', x: groupX - barWidth * 2 - 3 },
+        { value: item.refunded, color: '#7e57c2', label: '退款/沖正', x: groupX - barWidth - 1 },
+        { value: item.spend, color: '#26a69a', label: '折抵', x: groupX + 1 },
+        { value: item.expired, color: '#f9a825', label: '過期', x: groupX + barWidth + 3 }
       ];
       values.forEach(bar => {
         if (!Number.isFinite(bar.value) || bar.value <= 0) return;
@@ -192,7 +209,7 @@ window.ShopeeCoinAnalytics = (function () {
       svg += `<text x="${groupX}" y="${height - 12}" font-size="11" fill="#666" text-anchor="middle">${escapeXML(monthLabel)}</text>`;
     });
 
-    svg += `<g transform="translate(${width - 220}, 10)"><rect width="10" height="10" fill="#ee4d2d" rx="2"/><text x="14" y="9" font-size="10">獲得</text><rect x="58" width="10" height="10" fill="#26a69a" rx="2"/><text x="72" y="9" font-size="10">折抵</text><rect x="116" width="10" height="10" fill="#f9a825" rx="2"/><text x="130" y="9" font-size="10">過期</text></g></svg>`;
+    svg += `<g transform="translate(${width - 280}, 10)"><rect width="10" height="10" fill="#ee4d2d" rx="2"/><text x="14" y="9" font-size="10">實際獲得</text><rect x="72" width="10" height="10" fill="#7e57c2" rx="2"/><text x="86" y="9" font-size="10">退款/沖正</text><rect x="156" width="10" height="10" fill="#26a69a" rx="2"/><text x="170" y="9" font-size="10">折抵</text><rect x="212" width="10" height="10" fill="#f9a825" rx="2"/><text x="226" y="9" font-size="10">過期</text></g></svg>`;
     container.innerHTML = svg;
   }
 
