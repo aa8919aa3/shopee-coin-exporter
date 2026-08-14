@@ -1,243 +1,226 @@
 /**
  * Shopee Coin Analytics & Charting Renderer
- * Computes statistics and renders interactive SVG/Canvas charts.
+ * Computes exact fixed-point statistics and renders SVG charts.
  */
 
 window.ShopeeCoinAnalytics = (function () {
   'use strict';
 
-  // Compute Aggregated Statistics
+  const SCALE = window.ShopeeCoinCollector?.COIN_SCALE || 100000;
+
+  function microsToCoins(value) {
+    return Number.isSafeInteger(value) ? value / SCALE : 0;
+  }
+
+  function escapeXML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&apos;'
+    })[char]);
+  }
+
+  function validAmountMicros(record) {
+    if (Number.isSafeInteger(record?.amountMicros)) return Math.abs(record.amountMicros);
+    const fallback = Number(record?.amount);
+    return Number.isFinite(fallback) ? Math.abs(Math.round(fallback * SCALE)) : null;
+  }
+
   function computeStats(records) {
-    let totalGained = 0;
-    let totalSpent = 0;
-    let totalExpired = 0;
+    let totalGainedMicros = 0;
+    let totalSpentMicros = 0;
+    let totalExpiredMicros = 0;
+    let invalidRecords = 0;
+    let earliestTimestampMs = null;
+    let latestTimestampMs = null;
 
-    const monthlyMap = new Map(); // YYYY-MM -> { gain: 0, spend: 0 }
-    const categoryMap = new Map(); // Category -> { gain: 0, spend: 0, count: 0 }
+    const monthlyMap = new Map();
+    const categoryMap = new Map();
 
-    records.forEach(rec => {
-      const month = rec.monthKey || '其他';
-      if (!monthlyMap.has(month)) {
-        monthlyMap.set(month, { gain: 0, spend: 0 });
+    (Array.isArray(records) ? records : []).forEach(record => {
+      const amountMicros = validAmountMicros(record);
+      if (amountMicros === null || !['gain', 'spend', 'expired'].includes(record?.type)) {
+        invalidRecords += 1;
+        return;
       }
-      const mData = monthlyMap.get(month);
 
-      if (!categoryMap.has(rec.category)) {
-        categoryMap.set(rec.category, { gain: 0, spend: 0, count: 0 });
+      const timestampMs = Number(record.timestampMs);
+      if (Number.isFinite(timestampMs)) {
+        earliestTimestampMs = earliestTimestampMs === null ? timestampMs : Math.min(earliestTimestampMs, timestampMs);
+        latestTimestampMs = latestTimestampMs === null ? timestampMs : Math.max(latestTimestampMs, timestampMs);
       }
-      const cData = categoryMap.get(rec.category);
-      cData.count++;
 
-      if (rec.type === 'gain') {
-        totalGained += rec.amount;
-        mData.gain += rec.amount;
-        cData.gain += rec.amount;
-      } else if (rec.type === 'spend') {
-        totalSpent += rec.amount;
-        mData.spend += rec.amount;
-        cData.spend += rec.amount;
-      } else if (rec.type === 'expired') {
-        totalExpired += rec.amount;
+      const month = /^\d{4}-\d{2}$/.test(record.monthKey) ? record.monthKey : '其他';
+      if (!monthlyMap.has(month)) monthlyMap.set(month, { gainMicros: 0, spendMicros: 0, expiredMicros: 0 });
+      const monthData = monthlyMap.get(month);
+
+      const category = String(record.category || '其他');
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { gainMicros: 0, spendMicros: 0, expiredMicros: 0, count: 0 });
+      }
+      const categoryData = categoryMap.get(category);
+      categoryData.count += 1;
+
+      if (record.type === 'gain') {
+        totalGainedMicros += amountMicros;
+        monthData.gainMicros += amountMicros;
+        categoryData.gainMicros += amountMicros;
+      } else if (record.type === 'spend') {
+        totalSpentMicros += amountMicros;
+        monthData.spendMicros += amountMicros;
+        categoryData.spendMicros += amountMicros;
+      } else {
+        totalExpiredMicros += amountMicros;
+        monthData.expiredMicros += amountMicros;
+        categoryData.expiredMicros += amountMicros;
       }
     });
 
-    // Sort months chronologically
-    const sortedMonths = Array.from(monthlyMap.keys()).sort();
-    const monthlyList = sortedMonths.map(m => ({
-      month: m,
-      gain: monthlyMap.get(m).gain,
-      spend: monthlyMap.get(m).spend
-    }));
+    const periodNetChangeMicros = totalGainedMicros - totalSpentMicros - totalExpiredMicros;
+    const monthlyList = Array.from(monthlyMap.keys()).sort().map(month => {
+      const data = monthlyMap.get(month);
+      return {
+        month,
+        gain: microsToCoins(data.gainMicros),
+        spend: microsToCoins(data.spendMicros),
+        expired: microsToCoins(data.expiredMicros)
+      };
+    });
 
-    // Categories sorted by total activity
-    const categoryList = Array.from(categoryMap.entries()).map(([cat, data]) => ({
-      category: cat,
-      gain: data.gain,
-      spend: data.spend,
-      total: data.gain + data.spend,
-      count: data.count
-    })).sort((a, b) => b.total - a.total);
+    const categoryList = Array.from(categoryMap.entries()).map(([category, data]) => {
+      const totalMicros = data.gainMicros + data.spendMicros + data.expiredMicros;
+      return {
+        category,
+        gain: microsToCoins(data.gainMicros),
+        spend: microsToCoins(data.spendMicros),
+        expired: microsToCoins(data.expiredMicros),
+        total: microsToCoins(totalMicros),
+        count: data.count
+      };
+    }).sort((a, b) => b.total - a.total);
 
     return {
-      totalRecords: records.length,
-      totalGained,
-      totalSpent,
-      totalExpired,
-      netCoins: totalGained - totalSpent - totalExpired,
+      totalRecords: (Array.isArray(records) ? records.length : 0),
+      validRecords: (Array.isArray(records) ? records.length : 0) - invalidRecords,
+      invalidRecords,
+      totalGainedMicros,
+      totalSpentMicros,
+      totalExpiredMicros,
+      periodNetChangeMicros,
+      totalGained: microsToCoins(totalGainedMicros),
+      totalSpent: microsToCoins(totalSpentMicros),
+      totalExpired: microsToCoins(totalExpiredMicros),
+      periodNetChange: microsToCoins(periodNetChangeMicros),
+      netCoins: microsToCoins(periodNetChangeMicros),
+      earliestTimestampMs,
+      latestTimestampMs,
       monthlyList,
       categoryList
     };
   }
 
-  // Render SVG Monthly Trend Bar Chart
-  function renderMonthlyBarChart(containerEl, monthlyData) {
-    if (!monthlyData || monthlyData.length === 0) {
-      containerEl.innerHTML = `<div class="chart-empty-msg">尚無足夠數據繪製趨勢圖</div>`;
+  function renderMonthlyBarChart(container, monthlyData) {
+    if (!container) return;
+    if (!Array.isArray(monthlyData) || monthlyData.length === 0) {
+      container.textContent = '尚無足夠數據繪製趨勢圖';
+      container.classList.add('chart-empty-msg');
       return;
     }
+    container.classList.remove('chart-empty-msg');
 
-    // Limit to last 12 months for clarity
     const displayData = monthlyData.slice(-12);
-
     const width = 600;
     const height = 260;
     const padding = { top: 30, right: 20, bottom: 40, left: 50 };
-
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-
-    // Find max value
-    let maxVal = 1;
-    displayData.forEach(d => {
-      maxVal = Math.max(maxVal, d.gain, d.spend);
-    });
-    maxVal = Math.ceil(maxVal * 1.15); // headroom
-
-    const groupWidth = chartW / displayData.length;
-    const barWidth = Math.min(22, groupWidth * 0.35);
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const maxValue = Math.max(1, ...displayData.flatMap(item => [item.gain, item.spend, item.expired]));
+    const scaleMax = Math.ceil(maxValue * 1.15);
+    const groupWidth = chartWidth / displayData.length;
+    const barWidth = Math.min(16, groupWidth * 0.24);
 
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" xmlns="http://www.w3.org/2000/svg">`;
-
-    // Background Grid lines
-    const gridYCount = 4;
-    for (let i = 0; i <= gridYCount; i++) {
-      const yVal = (maxVal / gridYCount) * i;
-      const yPos = padding.top + chartH - (i / gridYCount) * chartH;
-      svg += `<line x1="${padding.left}" y1="${yPos}" x2="${width - padding.right}" y2="${yPos}" stroke="#e0e0e0" stroke-dasharray="3,3" stroke-width="1"/>`;
-      svg += `<text x="${padding.left - 8}" y="${yPos + 4}" font-size="10" fill="#888" text-anchor="end">${Math.round(yVal)}</text>`;
+    for (let index = 0; index <= 4; index += 1) {
+      const yValue = (scaleMax / 4) * index;
+      const yPosition = padding.top + chartHeight - (index / 4) * chartHeight;
+      svg += `<line x1="${padding.left}" y1="${yPosition}" x2="${width - padding.right}" y2="${yPosition}" stroke="#e0e0e0" stroke-dasharray="3,3" stroke-width="1"/>`;
+      svg += `<text x="${padding.left - 8}" y="${yPosition + 4}" font-size="10" fill="#888" text-anchor="end">${Math.round(yValue)}</text>`;
     }
 
-    // Axes
-    svg += `<line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="#ccc" stroke-width="1.5"/>`;
-
-    // Bars
-    displayData.forEach((d, idx) => {
-      const groupX = padding.left + idx * groupWidth + groupWidth / 2;
-      
-      const gainH = (d.gain / maxVal) * chartH;
-      const gainY = padding.top + chartH - gainH;
-      const gainX = groupX - barWidth - 2;
-
-      const spendH = (d.spend / maxVal) * chartH;
-      const spendY = padding.top + chartH - spendH;
-      const spendX = groupX + 2;
-
-      // Gain Bar (Orange/Red Shopee theme)
-      if (d.gain > 0) {
-        svg += `<rect x="${gainX}" y="${gainY}" width="${barWidth}" height="${gainH}" fill="#ee4d2d" rx="3" class="chart-bar">
-                  <title>${d.month} 獲得: +${d.gain.toFixed(1)} 蝦幣</title>
-                </rect>`;
-      }
-
-      // Spend Bar (Teal/Blue)
-      if (d.spend > 0) {
-        svg += `<rect x="${spendX}" y="${spendY}" width="${barWidth}" height="${spendH}" fill="#26a69a" rx="3" class="chart-bar">
-                  <title>${d.month} 折抵: -${d.spend.toFixed(1)} 蝦幣</title>
-                </rect>`;
-      }
-
-      // Month Label
-      const shortMonth = d.month.substring(2); // YY-MM
-      svg += `<text x="${groupX}" y="${height - 12}" font-size="11" fill="#666" text-anchor="middle">${shortMonth}</text>`;
+    displayData.forEach((item, index) => {
+      const groupX = padding.left + index * groupWidth + groupWidth / 2;
+      const values = [
+        { value: item.gain, color: '#ee4d2d', label: '獲得', x: groupX - barWidth * 1.5 - 2 },
+        { value: item.spend, color: '#26a69a', label: '折抵', x: groupX - barWidth / 2 },
+        { value: item.expired, color: '#f9a825', label: '過期', x: groupX + barWidth / 2 + 2 }
+      ];
+      values.forEach(bar => {
+        if (!Number.isFinite(bar.value) || bar.value <= 0) return;
+        const barHeight = (bar.value / scaleMax) * chartHeight;
+        const y = padding.top + chartHeight - barHeight;
+        svg += `<rect x="${bar.x}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${bar.color}" rx="3" class="chart-bar"><title>${escapeXML(item.month)} ${bar.label}: ${bar.value.toFixed(2)} 蝦幣</title></rect>`;
+      });
+      const monthLabel = /^\d{4}-\d{2}$/.test(item.month) ? item.month.substring(2) : '其他';
+      svg += `<text x="${groupX}" y="${height - 12}" font-size="11" fill="#666" text-anchor="middle">${escapeXML(monthLabel)}</text>`;
     });
 
-    // Legend
-    svg += `<g transform="translate(${width - 160}, 10)">
-              <rect x="0" y="0" width="12" height="12" fill="#ee4d2d" rx="2"/>
-              <text x="18" y="10" font-size="11" fill="#444">獲得 (+)</text>
-              <rect x="75" y="0" width="12" height="12" fill="#26a69a" rx="2"/>
-              <text x="93" y="10" font-size="11" fill="#444">折抵 (-)</text>
-            </g>`;
-
-    svg += `</svg>`;
-    containerEl.innerHTML = svg;
+    svg += `<g transform="translate(${width - 220}, 10)"><rect width="10" height="10" fill="#ee4d2d" rx="2"/><text x="14" y="9" font-size="10">獲得</text><rect x="58" width="10" height="10" fill="#26a69a" rx="2"/><text x="72" y="9" font-size="10">折抵</text><rect x="116" width="10" height="10" fill="#f9a825" rx="2"/><text x="130" y="9" font-size="10">過期</text></g></svg>`;
+    container.innerHTML = svg;
   }
 
-  // Render SVG Category Donut Chart
-  function renderCategoryDonutChart(containerEl, categoryData) {
-    if (!categoryData || categoryData.length === 0) {
-      containerEl.innerHTML = `<div class="chart-empty-msg">尚無分類數據</div>`;
+  function renderCategoryDonutChart(container, categoryData) {
+    if (!container) return;
+    const data = (Array.isArray(categoryData) ? categoryData : []).filter(item => Number.isFinite(item.total) && item.total > 0);
+    if (data.length === 0) {
+      container.textContent = '尚無分類數據';
+      container.classList.add('chart-empty-msg');
       return;
     }
+    container.classList.remove('chart-empty-msg');
 
     const colors = ['#ee4d2d', '#26a69a', '#ffb300', '#7e57c2', '#42a5f5', '#8d6e63', '#78909c'];
-    
-    let totalValue = 0;
-    categoryData.forEach(c => totalValue += c.total);
-
-    if (totalValue === 0) {
-      containerEl.innerHTML = `<div class="chart-empty-msg">數據值皆為 0</div>`;
-      return;
-    }
-
+    const totalValue = data.reduce((sum, item) => sum + item.total, 0);
     const width = 360;
     const height = 240;
     const cx = 110;
     const cy = 120;
-    const outerR = 80;
-    const innerR = 48;
-
+    const outerRadius = 80;
+    const innerRadius = 48;
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="chart-svg" xmlns="http://www.w3.org/2000/svg">`;
 
-    let startAngle = 0;
+    if (data.length === 1) {
+      svg += `<circle cx="${cx}" cy="${cy}" r="${(outerRadius + innerRadius) / 2}" fill="none" stroke="${colors[0]}" stroke-width="${outerRadius - innerRadius}" class="chart-slice"><title>${escapeXML(data[0].category)}: ${data[0].total.toFixed(2)} 蝦幣 (100.0%)</title></circle>`;
+    } else {
+      let startAngle = 0;
+      data.forEach((item, index) => {
+        const sliceAngle = (item.total / totalValue) * 2 * Math.PI;
+        const endAngle = startAngle + sliceAngle;
+        const x1Outer = cx + outerRadius * Math.cos(startAngle);
+        const y1Outer = cy + outerRadius * Math.sin(startAngle);
+        const x2Outer = cx + outerRadius * Math.cos(endAngle);
+        const y2Outer = cy + outerRadius * Math.sin(endAngle);
+        const x1Inner = cx + innerRadius * Math.cos(endAngle);
+        const y1Inner = cy + innerRadius * Math.sin(endAngle);
+        const x2Inner = cx + innerRadius * Math.cos(startAngle);
+        const y2Inner = cy + innerRadius * Math.sin(startAngle);
+        const largeArc = sliceAngle > Math.PI ? 1 : 0;
+        const path = `M ${x1Outer} ${y1Outer} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
+        const percentage = ((item.total / totalValue) * 100).toFixed(1);
+        svg += `<path d="${path}" fill="${colors[index % colors.length]}" stroke="#fff" stroke-width="1.5" class="chart-slice"><title>${escapeXML(item.category)}: ${item.total.toFixed(2)} 蝦幣 (${percentage}%)</title></path>`;
+        startAngle = endAngle;
+      });
+    }
 
-    categoryData.forEach((c, idx) => {
-      const sliceAngle = (c.total / totalValue) * 2 * Math.PI;
-      const endAngle = startAngle + sliceAngle;
-      const color = colors[idx % colors.length];
-
-      const x1_out = cx + outerR * Math.cos(startAngle);
-      const y1_out = cy + outerR * Math.sin(startAngle);
-      const x2_out = cx + outerR * Math.cos(endAngle);
-      const y2_out = cy + outerR * Math.sin(endAngle);
-
-      const x1_in = cx + innerR * Math.cos(endAngle);
-      const y1_in = cy + innerR * Math.sin(endAngle);
-      const x2_in = cx + innerR * Math.cos(startAngle);
-      const y2_in = cy + innerR * Math.sin(startAngle);
-
-      const largeArc = sliceAngle > Math.PI ? 1 : 0;
-
-      const pathData = [
-        `M ${x1_out} ${y1_out}`,
-        `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2_out} ${y2_out}`,
-        `L ${x1_in} ${y1_in}`,
-        `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x2_in} ${y2_in}`,
-        `Z`
-      ].join(' ');
-
-      const pct = ((c.total / totalValue) * 100).toFixed(1);
-
-      svg += `<path d="${pathData}" fill="${color}" stroke="#fff" stroke-width="1.5" class="chart-slice">
-                <title>${c.category}: ${c.total.toFixed(1)} 蝦幣 (${pct}%)</title>
-              </path>`;
-
-      startAngle = endAngle;
+    svg += `<text x="${cx}" y="${cy - 4}" font-size="12" fill="#888" text-anchor="middle">總活動量</text><text x="${cx}" y="${cy + 16}" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${totalValue.toFixed(2)}</text>`;
+    data.slice(0, 6).forEach((item, index) => {
+      const percentage = ((item.total / totalValue) * 100).toFixed(1);
+      svg += `<g transform="translate(210, ${30 + index * 28})"><rect width="10" height="10" fill="${colors[index % colors.length]}" rx="2"/><text x="16" y="9" font-size="11" fill="#333">${escapeXML(item.category)} (${percentage}%)</text></g>`;
     });
-
-    // Donut Center Text
-    svg += `<text x="${cx}" y="${cy - 4}" font-size="12" fill="#888" text-anchor="middle">總計變動</text>`;
-    svg += `<text x="${cx}" y="${cy + 16}" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${totalValue.toFixed(0)}</text>`;
-
-    // Legend on the right
-    let legendY = 30;
-    categoryData.slice(0, 6).forEach((c, idx) => {
-      const color = colors[idx % colors.length];
-      const pct = ((c.total / totalValue) * 100).toFixed(1);
-      svg += `<g transform="translate(210, ${legendY})">
-                <rect x="0" y="0" width="10" height="10" fill="${color}" rx="2"/>
-                <text x="16" y="9" font-size="11" fill="#333">${c.category} (${pct}%)</text>
-              </g>`;
-      legendY += 28;
-    });
-
-    svg += `</svg>`;
-    containerEl.innerHTML = svg;
+    svg += '</svg>';
+    container.innerHTML = svg;
   }
 
-  return {
-    computeStats,
-    renderMonthlyBarChart,
-    renderCategoryDonutChart
-  };
+  return { computeStats, renderMonthlyBarChart, renderCategoryDonutChart };
 })();

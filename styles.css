@@ -39,7 +39,6 @@
   width: 100vw;
   height: 100vh;
   background-color: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
   z-index: 999999;
   display: flex;
   justify-content: center;
@@ -113,7 +112,7 @@
   gap: 12px;
 }
 
-.btn-primary {
+#shopee-coin-modal-backdrop .btn-primary {
   background: #ee4d2d;
   color: white;
   border: none;
@@ -125,11 +124,11 @@
   font-size: 14px;
 }
 
-.btn-primary:hover {
+#shopee-coin-modal-backdrop .btn-primary:hover {
   background: #d73d1e;
 }
 
-.btn-success {
+#shopee-coin-modal-backdrop .btn-success {
   background: #2e7d32;
   color: white;
   border: none;
@@ -141,11 +140,11 @@
   font-size: 14px;
 }
 
-.btn-success:hover {
+#shopee-coin-modal-backdrop .btn-success:hover {
   background: #1b5e20;
 }
 
-.btn-outline {
+#shopee-coin-modal-backdrop .btn-outline {
   background: transparent;
   color: #495057;
   border: 1px solid #ced4da;
@@ -153,16 +152,16 @@
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
   font-size: 14px;
 }
 
-.btn-outline:hover {
+#shopee-coin-modal-backdrop .btn-outline:hover {
   background: #f1f3f5;
   border-color: #adb5bd;
 }
 
-.btn-close {
+#shopee-coin-modal-backdrop .btn-close {
   background: none;
   border: none;
   font-size: 24px;
@@ -173,7 +172,7 @@
   border-radius: 6px;
 }
 
-.btn-close:hover {
+#shopee-coin-modal-backdrop .btn-close:hover {
   background: #e9ecef;
   color: #111;
 }
@@ -208,7 +207,7 @@
   gap: 16px;
 }
 
-.stat-card {
+#shopee-coin-modal-backdrop .stat-card {
   background: #ffffff;
   padding: 16px 20px;
   border-radius: 12px;
@@ -219,23 +218,23 @@
   gap: 6px;
 }
 
-.stat-card-title {
+#shopee-coin-modal-backdrop .stat-card-title {
   font-size: 13px;
   color: #6c757d;
   font-weight: 500;
 }
 
-.stat-card-value {
+#shopee-coin-modal-backdrop .stat-card-value {
   font-size: 22px;
   font-weight: 700;
   color: #212529;
 }
 
-.stat-card-value.gain { color: #2e7d32; }
-.stat-card-value.spend { color: #c62828; }
-.stat-card-value.net { color: #ee4d2d; }
+#shopee-coin-modal-backdrop .stat-card-value.gain { color: #2e7d32; }
+#shopee-coin-modal-backdrop .stat-card-value.spend { color: #c62828; }
+#shopee-coin-modal-backdrop .stat-card-value.net { color: #ee4d2d; }
 
-.stat-card-primary {
+#shopee-coin-modal-backdrop .stat-card-primary {
   border-color: rgba(238, 77, 45, 0.35);
   background: linear-gradient(135deg, #fff8f5, #ffffff);
 }
@@ -260,14 +259,14 @@
   justify-content: space-between;
 }
 
-.filter-group {
+#shopee-coin-modal-backdrop .filter-group {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.filter-input, .filter-select {
+#shopee-coin-modal-backdrop .filter-input, #shopee-coin-modal-backdrop .filter-select {
   padding: 7px 12px;
   border: 1px solid #ced4da;
   border-radius: 6px;
@@ -275,7 +274,7 @@
   outline: none;
 }
 
-.filter-input:focus, .filter-select:focus {
+#shopee-coin-modal-backdrop .filter-input:focus, #shopee-coin-modal-backdrop .filter-select:focus {
   border-color: #ee4d2d;
 }
 
@@ -292,7 +291,7 @@
   }
 }
 
-.chart-card {
+#shopee-coin-modal-backdrop .chart-card {
   background: #ffffff;
   padding: 18px;
   border-radius: 12px;
@@ -302,14 +301,14 @@
   flex-direction: column;
 }
 
-.chart-card-title {
+#shopee-coin-modal-backdrop .chart-card-title {
   font-size: 15px;
   font-weight: 600;
   color: #333;
   margin-bottom: 12px;
 }
 
-.chart-container {
+#shopee-coin-modal-backdrop .chart-container {
   width: 100%;
   height: 250px;
   display: flex;
@@ -317,24 +316,24 @@
   justify-content: center;
 }
 
-.chart-svg {
+#shopee-coin-modal-backdrop .chart-svg {
   width: 100%;
   height: 100%;
 }
 
-.chart-bar:hover {
+#shopee-coin-modal-backdrop .chart-bar:hover {
   opacity: 0.82;
   cursor: pointer;
 }
 
-.chart-slice:hover {
+#shopee-coin-modal-backdrop .chart-slice:hover {
   opacity: 0.85;
   cursor: pointer;
   transform: scale(1.02);
   transform-origin: center;
 }
 
-.chart-empty-msg {
+#shopee-coin-modal-backdrop .chart-empty-msg {
   color: #999;
   font-size: 14px;
 }
@@ -348,19 +347,19 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.03);
 }
 
-.table-wrapper {
+#shopee-coin-modal-backdrop .table-wrapper {
   overflow-x: auto;
   max-height: 380px;
 }
 
-.coin-table {
+#shopee-coin-modal-backdrop .coin-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
   text-align: left;
 }
 
-.coin-table th {
+#shopee-coin-modal-backdrop .coin-table th {
   background: #f1f3f5;
   color: #495057;
   padding: 12px 16px;
@@ -371,17 +370,17 @@
   border-bottom: 2px solid #dee2e6;
 }
 
-.coin-table td {
+#shopee-coin-modal-backdrop .coin-table td {
   padding: 10px 16px;
   border-bottom: 1px solid #e9ecef;
   color: #212529;
 }
 
-.coin-table tr:hover {
+#shopee-coin-modal-backdrop .coin-table tr:hover {
   background: #f8f9fa;
 }
 
-.badge {
+#shopee-coin-modal-backdrop .badge {
   display: inline-block;
   padding: 3px 8px;
   border-radius: 4px;
@@ -389,22 +388,22 @@
   font-weight: 600;
 }
 
-.badge-gain {
+#shopee-coin-modal-backdrop .badge-gain {
   background: #e8f5e9;
   color: #2e7d32;
 }
 
-.badge-spend {
+#shopee-coin-modal-backdrop .badge-spend {
   background: #ffebee;
   color: #c62828;
 }
 
-.badge-expired {
+#shopee-coin-modal-backdrop .badge-expired {
   background: #fff3e0;
   color: #e65100;
 }
 
-.table-pagination {
+#shopee-coin-modal-backdrop .table-pagination {
   padding: 12px 18px;
   display: flex;
   justify-content: space-between;
@@ -413,4 +412,51 @@
   background: #fafafa;
   font-size: 13px;
   color: #6c757d;
+}
+
+.shopee-coin-progress-banner[data-kind="warning"] {
+  background: #fff8e1;
+  border-color: #ffe082;
+  color: #7a4f00;
+}
+
+.shopee-coin-progress-banner[data-kind="error"] {
+  background: #ffebee;
+  border-color: #ffcdd2;
+  color: #b71c1c;
+}
+
+.shopee-coin-progress-banner[data-kind="success"] {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+  color: #1b5e20;
+}
+
+#shopee-coin-modal-backdrop button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+#shopee-coin-modal-backdrop .coin-amount-gain {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+#shopee-coin-modal-backdrop .coin-amount-spend {
+  color: #c62828;
+  font-weight: 700;
+}
+
+#shopee-coin-modal-backdrop .empty-table-message {
+  color: #888;
+  padding: 30px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #shopee-coin-float-btn,
+  .shopee-coin-dashboard {
+    animation: none;
+    transition: none;
+  }
 }

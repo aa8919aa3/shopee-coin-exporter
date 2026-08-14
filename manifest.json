@@ -1,12 +1,11 @@
 {
   "manifest_version": 3,
   "name": "蝦皮蝦幣歷史紀錄收集與統計分析器",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "自動收集蝦皮蝦幣所有歷史紀錄，提供數據彙總、統計圖表展示及 CSV / TXT 報表匯出功能。",
   "author": "Gemini Assistant",
   "permissions": [
-    "activeTab",
-    "storage"
+    "activeTab"
   ],
   "host_permissions": [
     "https://shopee.tw/*"
@@ -18,8 +17,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://shopee.tw/user/coin/list*",
-        "https://shopee.tw/user/coin*"
+        "https://shopee.tw/user/coin/list*"
       ],
       "css": [
         "styles.css"
