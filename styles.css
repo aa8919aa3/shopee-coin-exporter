@@ -281,8 +281,12 @@
 /* Charts Section */
 .shopee-coin-charts-grid {
   display: grid;
-  grid-template-columns: 3fr 2fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+#shopee-coin-modal-backdrop .chart-card-wide {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 820px) {
@@ -336,6 +340,43 @@
 #shopee-coin-modal-backdrop .chart-empty-msg {
   color: #999;
   font-size: 14px;
+}
+
+#shopee-coin-modal-backdrop .debug-active {
+  color: #0d652d;
+  border-color: #34a853;
+  background: #e6f4ea;
+}
+
+#shopee-coin-modal-backdrop .shopee-coin-debug-panel {
+  padding: 14px 16px;
+  border: 1px solid #b7d7ff;
+  border-radius: 10px;
+  background: #f4f8ff;
+}
+
+#shopee-coin-modal-backdrop .shopee-coin-debug-panel[hidden] {
+  display: none;
+}
+
+#shopee-coin-modal-backdrop .debug-panel-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #174ea6;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#shopee-coin-modal-backdrop #debug-output {
+  margin: 0;
+  max-height: 190px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #263238;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* Table Section */

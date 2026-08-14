@@ -4,9 +4,11 @@ const { performance } = require('node:perf_hooks');
 
 global.window = {};
 require('./api.js');
+require('./filters.js');
 require('./charts.js');
 
 const collector = window.ShopeeCoinCollector;
+const filters = window.ShopeeCoinFilters;
 const analytics = window.ShopeeCoinAnalytics;
 
 function response(body, status = 200, contentType = 'application/json', extraHeaders = {}) {
@@ -43,7 +45,7 @@ async function testCompleteFetchAndExactStats() {
   const progress = [];
   global.fetch = async url => {
     if (url.includes('get_user_coins_summary')) return response(summaryBody());
-    const offset = Number(new URL(`https://shopee.tw${url}`).searchParams.get('offset'));
+    const offset = Number(new URL(url, 'https://shopee.tw').searchParams.get('offset'));
     if (offset === 0) {
       return response({ error: 0, has_more: true, items: [
         { id: 1, coin_amount: 0.1, ctime: 1700000000, name: '獎勵' },
@@ -62,7 +64,11 @@ async function testCompleteFetchAndExactStats() {
   assert.equal(result.records.length, 4);
   assert.equal(result.accountSummary.availableAmount, 1463.11);
   assert.equal(result.accountSummary.nextExpiry.amount, 1213.45);
+  assert.ok(result.performance.totalDurationMs >= 0);
+  assert.equal(result.performance.pagesFetched, 2);
+  assert.ok(result.performance.averagePageDurationMs >= 0);
   assert.ok(progress.every(event => !Object.hasOwn(event, 'records')), 'progress must not clone all records');
+  assert.ok(progress.every(event => Number.isFinite(event.lastPageDurationMs)), 'progress must expose page latency');
   assert.equal(result.records.find(record => record.id === 'api_2').type, 'gain');
 
   const stats = analytics.computeStats(result.records);
@@ -72,13 +78,15 @@ async function testCompleteFetchAndExactStats() {
   assert.equal(stats.periodNetChangeMicros, -5000);
   assert.equal(stats.periodNetChange, -0.05);
   assert.equal(stats.categoryList.reduce((sum, item) => sum + item.total, 0), 0.65);
+  assert.equal(Math.round(stats.sourceCategoryList.reduce((sum, item) => sum + item.total, 0) * collector.COIN_SCALE), 30000);
+  assert.equal(Math.round(stats.usageCategoryList.reduce((sum, item) => sum + item.total, 0) * collector.COIN_SCALE), 35000);
 }
 
 async function testPartialAndRejectedRecords() {
   const client = new collector.APIClient.constructor();
   global.fetch = async url => {
     if (url.includes('get_user_coins_summary')) return response(summaryBody());
-    const offset = Number(new URL(`https://shopee.tw${url}`).searchParams.get('offset'));
+    const offset = Number(new URL(url, 'https://shopee.tw').searchParams.get('offset'));
     if (offset === 0) {
       return response({ error: 0, has_more: true, items: [
         { id: 10, coin_amount: 1, ctime: 1700000000, name: '有效' },
@@ -126,6 +134,62 @@ async function testClearDoesNotResurrectOldData() {
   assert.equal(client.getRecordsArray().length, 0);
   assert.equal(client.getAccountSummary(), null);
   assert.equal(client.getLastResult(), null);
+}
+
+async function testNetworkRetryDiagnostics() {
+  const client = new collector.APIClient.constructor();
+  let attempts = 0;
+  collector.setDebugEnabled(true);
+  global.fetch = async url => {
+    attempts += 1;
+    assert.equal(new URL(url).origin, 'https://shopee.tw');
+    if (attempts === 1) throw new TypeError('Failed to fetch');
+    return response({ ok: true });
+  };
+
+  const payload = await client.fetchJSON('/api/v4/coin/debug_retry', { retries: 1 });
+  assert.equal(payload.ok, true);
+  assert.equal(attempts, 2);
+  const events = collector.getDiagnostics().events;
+  assert.ok(events.some(event => event.event === 'request:error' && event.code === 'NETWORK'));
+  assert.ok(events.some(event => event.event === 'request:retry'));
+  assert.ok(events.some(event => event.event === 'request:response' && event.status === 200));
+  collector.setDebugEnabled(false);
+}
+
+function testActivityCategories() {
+  const examples = new Map([
+    ['觀看蝦皮短影音獲得蝦幣', '短影音'],
+    ['每日登入獎勵', '每日登入'],
+    ['完成訂單評價獎勵', '評價'],
+    ['VIP 訂閱會員回饋', 'VIP訂閱'],
+    ['蝦皮聯名卡消費回饋', '蝦皮聯名卡'],
+    ['蝦幣獎勵發放', '蝦幣獎勵']
+  ]);
+  examples.forEach((expected, title) => {
+    const record = new collector.CoinRecord({ id: title, timestampMs: 1700000000000, title, type: 'gain', amountMicros: 1 });
+    assert.equal(record.category, expected, title);
+    assert.ok(collector.ACTIVITY_CATEGORIES.includes(expected));
+  });
+}
+
+function testLargeRecordFiltering() {
+  const records = Array.from({ length: 100000 }, (_, index) => new collector.CoinRecord({
+    id: `filter_${index}`,
+    timestampMs: 1700000000000 + index,
+    title: index % 10 === 0 ? `短影音 BONUS ${index}` : `一般活動 ${index}`,
+    type: index % 4 === 0 ? 'spend' : 'gain',
+    category: index % 10 === 0 ? '短影音' : '其他活動',
+    amountMicros: 1,
+    orderSn: `ORDER${index}`
+  }));
+  const started = performance.now();
+  const result = filters.filterRecords(records, 'bonus', 'gain', '短影音');
+  const elapsed = performance.now() - started;
+  assert.equal(filters.filterRecords(records, '', 'all', 'all'), records, 'unfiltered view should reuse the source array');
+  assert.equal(result.length, 5000);
+  assert.ok(elapsed < 500, `100,000 records should filter under 500ms, got ${elapsed.toFixed(1)}ms`);
+  console.log(`100,000-record filtering: ${elapsed.toFixed(1)}ms`);
 }
 
 function testTenThousandRecordPerformance() {
@@ -177,6 +241,9 @@ async function main() {
   await testPartialAndRejectedRecords();
   await testStopActuallyAborts();
   await testClearDoesNotResurrectOldData();
+  await testNetworkRetryDiagnostics();
+  testActivityCategories();
+  testLargeRecordFiltering();
   testTenThousandRecordPerformance();
   await testCSVFormulaNeutralization();
 

@@ -7,6 +7,7 @@ window.ShopeeCoinExporter = (function () {
   'use strict';
 
   let exportInProgress = false;
+  const textEncoder = new TextEncoder();
 
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -101,7 +102,7 @@ window.ShopeeCoinExporter = (function () {
     if (!snapshot) return Promise.resolve(false);
 
     return withExportLock(async () => {
-      const parts = ['\uFEFF', ['交易時間', '項目說明', '分類', '變動類型', '蝦幣數量', '到期日期', '訂單編號'].map(escapeCSVText).join(','), '\r\n'];
+      const parts = [textEncoder.encode(`\uFEFF${['交易時間', '項目說明', '分類', '變動類型', '蝦幣數量', '到期日期', '訂單編號'].map(escapeCSVText).join(',')}\r\n`)];
       let chunk = [];
 
       for (let index = 0; index < snapshot.length; index += 1) {
@@ -118,12 +119,12 @@ window.ShopeeCoinExporter = (function () {
         ].join(','));
 
         if (chunk.length >= 500) {
-          parts.push(chunk.join('\r\n'), '\r\n');
+          parts.push(textEncoder.encode(`${chunk.join('\r\n')}\r\n`));
           chunk = [];
           await yieldToBrowser(index);
         }
       }
-      if (chunk.length) parts.push(chunk.join('\r\n'), '\r\n');
+      if (chunk.length) parts.push(textEncoder.encode(`${chunk.join('\r\n')}\r\n`));
 
       downloadBlob(new Blob(parts, { type: 'text/csv;charset=utf-8' }), `蝦皮蝦幣紀錄彙整_${localFileTimestamp()}.csv`);
     });
@@ -168,7 +169,7 @@ window.ShopeeCoinExporter = (function () {
         '--------------------------------------------------'
       );
 
-      const parts = [lines.join('\n'), '\n'];
+      const parts = [textEncoder.encode(`${lines.join('\n')}\n`)];
       let chunk = [];
       for (let index = 0; index < snapshot.length; index += 1) {
         const record = snapshot[index];
@@ -183,13 +184,13 @@ window.ShopeeCoinExporter = (function () {
         );
 
         if (chunk.length >= 250) {
-          parts.push(chunk.join(''));
+          parts.push(textEncoder.encode(chunk.join('')));
           chunk = [];
           await yieldToBrowser(index);
         }
       }
-      if (chunk.length) parts.push(chunk.join(''));
-      parts.push('==================================================\n End of Report - 蝦幣歷史紀錄分析擴充功能生成\n==================================================\n');
+      if (chunk.length) parts.push(textEncoder.encode(chunk.join('')));
+      parts.push(textEncoder.encode('==================================================\n End of Report - 蝦幣歷史紀錄分析擴充功能生成\n==================================================\n'));
 
       downloadBlob(new Blob(parts, { type: 'text/plain;charset=utf-8' }), `蝦皮蝦幣紀錄彙整_${localFileTimestamp()}.txt`);
     });

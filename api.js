@@ -12,6 +12,86 @@ window.ShopeeCoinCollector = (function () {
   const MAX_RECORDS = 200000;
   const REQUEST_TIMEOUT_MS = 15000;
   const MAX_RETRIES = 3;
+  const PAGE_DELAY_MS = 50;
+  const DEBUG_STORAGE_KEY = 'shopeeCoinDebugEnabled';
+  const ACTIVITY_CATEGORIES = Object.freeze([
+    '每日簽到',
+    '每日登入',
+    '購物/訂單',
+    '消費折抵',
+    '蝦幣過期',
+    '退款/補償',
+    '蝦皮遊戲',
+    '短影音',
+    '蝦皮直播',
+    '評價',
+    'VIP訂閱',
+    '蝦皮聯名卡',
+    '蝦幣獎勵',
+    '行銷活動/任務',
+    '其他活動'
+  ]);
+
+  const diagnostics = {
+    enabled: false,
+    runId: null,
+    startedAt: null,
+    events: []
+  };
+
+  function nowMs() {
+    return globalThis.performance?.now?.() ?? Date.now();
+  }
+
+  function readDebugPreference() {
+    try {
+      const queryEnabled = new URL(globalThis.location?.href || 'https://shopee.tw/').searchParams.get('shopee_coin_debug') === '1';
+      return queryEnabled || globalThis.localStorage?.getItem(DEBUG_STORAGE_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function setDebugEnabled(enabled) {
+    diagnostics.enabled = Boolean(enabled);
+    try {
+      globalThis.localStorage?.setItem(DEBUG_STORAGE_KEY, diagnostics.enabled ? '1' : '0');
+    } catch (error) {
+      // Some privacy modes block storage; debug mode remains active for this page.
+    }
+    console.info(`[ShopeeCoinCollector] Debug mode ${diagnostics.enabled ? 'enabled' : 'disabled'}.`);
+    return diagnostics.enabled;
+  }
+
+  function resetDiagnostics(runId) {
+    diagnostics.runId = runId;
+    diagnostics.startedAt = new Date().toISOString();
+    diagnostics.events = [];
+  }
+
+  function recordDiagnostic(event, details = {}) {
+    if (!diagnostics.enabled) return;
+    const entry = {
+      time: new Date().toISOString(),
+      elapsedMs: diagnostics.runStartedAtMs ? Math.round((nowMs() - diagnostics.runStartedAtMs) * 100) / 100 : 0,
+      event,
+      ...details
+    };
+    diagnostics.events.push(entry);
+    if (diagnostics.events.length > 1000) diagnostics.events.shift();
+    console.debug(`[ShopeeCoinCollector][debug] ${event}`, details);
+  }
+
+  function getDiagnostics() {
+    return {
+      enabled: diagnostics.enabled,
+      runId: diagnostics.runId,
+      startedAt: diagnostics.startedAt,
+      events: diagnostics.events.map(event => ({ ...event }))
+    };
+  }
+
+  diagnostics.enabled = readDebugPreference();
 
   class CollectorError extends Error {
     constructor(code, message, details = {}) {
@@ -99,25 +179,30 @@ window.ShopeeCoinCollector = (function () {
     constructor(data) {
       this.id = String(data.id);
       this.timestampMs = data.timestampMs;
-      this.timestamp = new Date(data.timestampMs).toISOString();
       this.dateStr = data.dateStr || formatLocalDate(new Date(data.timestampMs));
-      this.monthKey = /^\d{4}-\d{2}/.test(this.dateStr) ? this.dateStr.substring(0, 7) : '其他';
       this.title = String(data.title || '蝦幣變動');
       this.type = ['gain', 'spend', 'expired'].includes(data.type) ? data.type : 'unknown';
       this.amountMicros = Math.abs(Number.isSafeInteger(data.amountMicros) ? data.amountMicros : 0);
-      this.signedAmountMicros = this.type === 'gain' ? this.amountMicros : -this.amountMicros;
-      this.amount = microsToCoins(this.amountMicros);
-      this.displayAmount = microsToCoins(this.signedAmountMicros);
       this.expiryDate = String(data.expiryDate || '-');
       this.orderSn = String(data.orderSn || '-');
       this.category = String(data.category || this.inferCategory(this.title));
     }
 
+    get displayAmount() {
+      return microsToCoins(this.type === 'gain' ? this.amountMicros : -this.amountMicros);
+    }
+
     inferCategory(title) {
       if (!title) return '其他';
+      if (/每日登入|每日登錄|登入獎勵|登錄獎勵/.test(title)) return '每日登入';
       if (title.includes('簽到') || title.includes('報到')) return '每日簽到';
       if (title.includes('過期') || title.includes('失效')) return '蝦幣過期';
       if (title.includes('退款') || title.includes('退貨') || title.includes('補償')) return '退款/補償';
+      if (/短影音|短視頻|短视频|Shopee Video/i.test(title)) return '短影音';
+      if (/評價|評論|評分/.test(title)) return '評價';
+      if (/VIP\s*訂閱|VIP\s*會員|會員訂閱/i.test(title)) return 'VIP訂閱';
+      if (/蝦皮聯名卡|聯名卡|蝦皮信用卡|Shopee\s*信用卡/i.test(title)) return '蝦皮聯名卡';
+      if (/蝦幣獎勵|蝦幣回饋|Coin\s*Reward/i.test(title)) return '蝦幣獎勵';
       if (title.includes('折抵') || title.includes('使用') || title.includes('付款')) return '消費折抵';
       if (title.includes('訂單') || title.includes('購物') || title.includes('完成訂單')) return '購物/訂單';
       if (title.includes('遊戲') || title.includes('蝦蝦果園') || title.includes('消消樂') || title.includes('寶箱')) return '蝦皮遊戲';
@@ -130,7 +215,7 @@ window.ShopeeCoinCollector = (function () {
   class APIClient {
     constructor() {
       this.isCollecting = false;
-      this.collectedRecords = new Map();
+      this.collectedRecords = [];
       this.accountSummary = null;
       this.lastResult = null;
       this.activeRun = null;
@@ -147,16 +232,20 @@ window.ShopeeCoinCollector = (function () {
       this.stop();
       this.activeRun = null;
       this.isCollecting = false;
-      this.collectedRecords.clear();
+      this.collectedRecords = [];
       this.accountSummary = null;
       this.lastResult = null;
     }
 
     async fetchJSON(url, { signal, offset = null, retries = MAX_RETRIES } = {}) {
       let lastError = null;
+      const requestUrl = new URL(url, globalThis.location?.origin || 'https://shopee.tw');
+      const endpoint = requestUrl.pathname;
 
       for (let attempt = 0; attempt <= retries; attempt += 1) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        const attemptStartedAt = nowMs();
+        recordDiagnostic('request:start', { endpoint, offset, attempt: attempt + 1, maxAttempts: retries + 1 });
 
         const timeoutController = new AbortController();
         const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
@@ -164,10 +253,17 @@ window.ShopeeCoinCollector = (function () {
         signal?.addEventListener('abort', abortTimeout, { once: true });
 
         try {
-          const response = await fetch(url, {
+          const response = await fetch(requestUrl.href, {
             credentials: 'include',
             signal: timeoutController.signal,
             headers: { Accept: 'application/json' }
+          });
+          recordDiagnostic('request:response', {
+            endpoint,
+            offset,
+            attempt: attempt + 1,
+            status: response.status,
+            durationMs: Math.round((nowMs() - attemptStartedAt) * 100) / 100
           });
 
           if (response.status === 401 || response.status === 403) {
@@ -207,6 +303,14 @@ window.ShopeeCoinCollector = (function () {
                 retriable: true,
                 cause: error.message
               });
+          recordDiagnostic('request:error', {
+            endpoint,
+            offset,
+            attempt: attempt + 1,
+            code: lastError.code,
+            cause: lastError.details?.cause || lastError.message,
+            durationMs: Math.round((nowMs() - attemptStartedAt) * 100) / 100
+          });
         } finally {
           clearTimeout(timeout);
           signal?.removeEventListener('abort', abortTimeout);
@@ -215,6 +319,7 @@ window.ShopeeCoinCollector = (function () {
         if (attempt < retries) {
           const retryAfterMs = lastError?.details?.retryAfterMs;
           const backoffMs = retryAfterMs || Math.min(5000, 400 * (2 ** attempt)) + Math.floor(Math.random() * 200);
+          recordDiagnostic('request:retry', { endpoint, offset, nextAttempt: attempt + 2, backoffMs });
           await waitWithSignal(backoffMs, signal);
         }
       }
@@ -344,19 +449,29 @@ window.ShopeeCoinCollector = (function () {
       let reachedEnd = false;
       let terminalError = null;
       let previousPageFingerprint = null;
+      const runStartedAtMs = nowMs();
+      const pageDurationsMs = [];
+      let summaryDurationMs = null;
+      resetDiagnostics(runId);
+      diagnostics.runStartedAtMs = runStartedAtMs;
+      recordDiagnostic('collection:start', { pageSize: DEFAULT_PAGE_SIZE, pageDelayMs: PAGE_DELAY_MS });
 
       try {
+        const summaryStartedAtMs = nowMs();
         try {
           accountSummary = await this.fetchAccountSummary(controller.signal);
         } catch (error) {
           if (isAbortError(error)) throw error;
           summaryError = this.serializeError(error);
           warnings.push(`官方餘額摘要無法取得：${error.message}`);
+        } finally {
+          summaryDurationMs = Math.round((nowMs() - summaryStartedAtMs) * 100) / 100;
         }
 
         while (!controller.signal.aborted && pagesFetched < MAX_PAGES && records.size < MAX_RECORDS) {
           const apiUrl = `/api/v4/coin/get_user_coin_transaction_list?type=all&offset=${offset}&limit=${DEFAULT_PAGE_SIZE}`;
           let payload;
+          const pageStartedAtMs = nowMs();
           try {
             payload = await this.fetchJSON(apiUrl, { signal: controller.signal, offset });
           } catch (error) {
@@ -364,6 +479,8 @@ window.ShopeeCoinCollector = (function () {
             terminalError = error;
             break;
           }
+          const pageDurationMs = Math.round((nowMs() - pageStartedAtMs) * 100) / 100;
+          pageDurationsMs.push(pageDurationMs);
 
           if (payload.error && payload.error !== 0) {
             terminalError = new CollectorError('API', payload.error_msg || `交易 API 錯誤 ${payload.error}`, {
@@ -402,7 +519,7 @@ window.ShopeeCoinCollector = (function () {
             try {
               const record = this.normalizeRawLogItem(item, { offset, index });
               const existing = records.get(record.id);
-              if (existing && (existing.timestampMs !== record.timestampMs || existing.signedAmountMicros !== record.signedAmountMicros)) {
+              if (existing && (existing.timestampMs !== record.timestampMs || existing.type !== record.type || existing.amountMicros !== record.amountMicros)) {
                 warnings.push(`交易 ID 衝突：${record.id}`);
                 rejectedRecords += 1;
                 return;
@@ -420,7 +537,16 @@ window.ShopeeCoinCollector = (function () {
 
           if (typeof progressCallback === 'function') {
             try {
-              progressCallback({ runId, status: 'fetching', fetchedCount: records.size, pagesFetched, addedCount, rejectedRecords });
+              progressCallback({
+                runId,
+                status: 'fetching',
+                fetchedCount: records.size,
+                pagesFetched,
+                addedCount,
+                rejectedRecords,
+                lastPageDurationMs: pageDurationMs,
+                elapsedMs: Math.round((nowMs() - runStartedAtMs) * 100) / 100
+              });
             } catch (error) {
               console.warn('[ShopeeCoinCollector] Progress callback failed:', error);
             }
@@ -439,7 +565,7 @@ window.ShopeeCoinCollector = (function () {
             break;
           }
 
-          await waitWithSignal(100, controller.signal);
+          await waitWithSignal(PAGE_DELAY_MS, controller.signal);
         }
 
         if (!reachedEnd && !terminalError && !controller.signal.aborted) {
@@ -459,6 +585,25 @@ window.ShopeeCoinCollector = (function () {
         else status = 'failed';
 
         const sortedRecords = Array.from(records.values()).sort((a, b) => b.timestampMs - a.timestampMs || a.id.localeCompare(b.id));
+        records.clear();
+        const totalDurationMs = Math.round((nowMs() - runStartedAtMs) * 100) / 100;
+        const transactionDurationMs = Math.round(pageDurationsMs.reduce((sum, value) => sum + value, 0) * 100) / 100;
+        const performanceMetrics = {
+          totalDurationMs,
+          summaryDurationMs,
+          transactionDurationMs,
+          averagePageDurationMs: pageDurationsMs.length ? Math.round((transactionDurationMs / pageDurationsMs.length) * 100) / 100 : null,
+          slowestPageDurationMs: pageDurationsMs.length ? Math.max(...pageDurationsMs) : null,
+          pageDelayTotalMs: Math.max(0, pagesFetched - 1) * PAGE_DELAY_MS,
+          pagesFetched,
+          recordsPerSecond: totalDurationMs > 0 ? Math.round((sortedRecords.length / totalDurationMs) * 100000) / 100 : null
+        };
+        recordDiagnostic('collection:complete', {
+          status,
+          recordCount: sortedRecords.length,
+          errorCode: terminalError?.code || null,
+          performance: performanceMetrics
+        });
         const result = {
           runId,
           status,
@@ -470,11 +615,13 @@ window.ShopeeCoinCollector = (function () {
           rejectedRecords,
           warnings,
           failedOffset: terminalError?.details?.offset ?? null,
-          error: terminalError ? this.serializeError(terminalError) : null
+          error: terminalError ? this.serializeError(terminalError) : null,
+          performance: performanceMetrics,
+          diagnostics: getDiagnostics()
         };
 
         if (this.activeRun?.runId === runId) {
-          this.collectedRecords = new Map(sortedRecords.map(record => [record.id, record]));
+          this.collectedRecords = sortedRecords;
           this.accountSummary = accountSummary;
           this.lastResult = result;
           this.activeRun = null;
@@ -526,7 +673,7 @@ window.ShopeeCoinCollector = (function () {
     }
 
     getRecordsArray() {
-      return Array.from(this.collectedRecords.values());
+      return this.collectedRecords.slice();
     }
 
     getAccountSummary() {
@@ -540,10 +687,14 @@ window.ShopeeCoinCollector = (function () {
 
   return {
     COIN_SCALE,
+    ACTIVITY_CATEGORIES,
     CoinRecord,
     CollectorError,
     coinsToMicros,
     microsToCoins,
+    setDebugEnabled,
+    isDebugEnabled: () => diagnostics.enabled,
+    getDiagnostics,
     APIClient: new APIClient()
   };
 })();

@@ -1,0 +1,428 @@
+{
+  "benchmarkVersion": 2,
+  "startedAt": "2026-08-14T12:30:42.256Z",
+  "environment": {
+    "node": "v26.7.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M1 Pro",
+    "logicalCores": 8,
+    "totalMemoryMB": 16384
+  },
+  "results": [
+    {
+      "count": 10000,
+      "timeMs": {
+        "constructRecords": 160.05,
+        "aggregateMedian": 28.45,
+        "aggregateSamples": [
+          33.9,
+          9.5,
+          28.45,
+          8.4,
+          46.16
+        ],
+        "sortCopyMedian": 43.04,
+        "sortCopySamples": [
+          43.04,
+          21.67,
+          69.91
+        ],
+        "keywordFilterMedian": 193.46,
+        "keywordFilterSamples": [
+          386.76,
+          193.46,
+          492.03,
+          34.99,
+          25.44
+        ],
+        "categoryFilterMedian": 1.71,
+        "categoryFilterSamples": [
+          1.71,
+          1,
+          0.73,
+          4.06,
+          3.22
+        ],
+        "buildDedupeMap": 4.4,
+        "exportCSV": 61.54,
+        "exportTXT": 34.27
+      },
+      "output": {
+        "keywordMatches": 667,
+        "categoryMatches": 667,
+        "csvBytes": 1329040,
+        "txtBytes": 1818241
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 54.56,
+          "heapUsed": 4.02,
+          "heapTotal": 5.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 61.11,
+          "heapUsed": 10.84,
+          "heapTotal": 16.64,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 61.77,
+          "heapUsed": 8.96,
+          "heapTotal": 17.64,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 4.94,
+        "withSortedCopyImmediate": {
+          "rss": 67.5,
+          "heapUsed": 10.32,
+          "heapTotal": 20.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 67.53,
+          "heapUsed": 9.07,
+          "heapTotal": 21.14,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": 0.11,
+        "withMapImmediate": {
+          "rss": 60.5,
+          "heapUsed": 11.23,
+          "heapTotal": 22.08,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 60.48,
+          "heapUsed": 8.99,
+          "heapTotal": 21.59,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": 0.03,
+        "beforeCSV": {
+          "rss": 60.03,
+          "heapUsed": 8.55,
+          "heapTotal": 21.14,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 78.69,
+          "heapUsed": 14.31,
+          "heapTotal": 27.39,
+          "external": 3.15,
+          "arrayBuffers": 2.67
+        },
+        "csvHeapDelta": 5.76,
+        "csvExternalDelta": 1.27,
+        "beforeTXT": {
+          "rss": 78.69,
+          "heapUsed": 8.64,
+          "heapTotal": 26.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 82.42,
+          "heapUsed": 15.93,
+          "heapTotal": 26.39,
+          "external": 3.62,
+          "arrayBuffers": 3.6
+        },
+        "txtHeapDelta": 7.29,
+        "txtExternalDelta": 1.74,
+        "afterRelease": {
+          "rss": 82.48,
+          "heapUsed": 8.67,
+          "heapTotal": 26.39,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    },
+    {
+      "count": 50000,
+      "timeMs": {
+        "constructRecords": 144.18,
+        "aggregateMedian": 7.41,
+        "aggregateSamples": [
+          15.64,
+          7.41,
+          5.92,
+          6.23,
+          10.17
+        ],
+        "sortCopyMedian": 21.79,
+        "sortCopySamples": [
+          55.71,
+          21.59,
+          21.79
+        ],
+        "keywordFilterMedian": 143.77,
+        "keywordFilterSamples": [
+          159.4,
+          143.77,
+          143.23,
+          146.9,
+          126.14
+        ],
+        "categoryFilterMedian": 4.49,
+        "categoryFilterSamples": [
+          2.77,
+          1.88,
+          73.89,
+          4.49,
+          6.08
+        ],
+        "buildDedupeMap": 37.07,
+        "exportCSV": 726.34,
+        "exportTXT": 113.33
+      },
+      "output": {
+        "keywordMatches": 3333,
+        "categoryMatches": 3333,
+        "csvBytes": 6689280,
+        "txtBytes": 9176483
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 82.53,
+          "heapUsed": 4.2,
+          "heapTotal": 21.14,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 116.89,
+          "heapUsed": 42.67,
+          "heapTotal": 60.53,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 126.23,
+          "heapUsed": 29.03,
+          "heapTotal": 68.03,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 24.83,
+        "withSortedCopyImmediate": {
+          "rss": 134.98,
+          "heapUsed": 33.46,
+          "heapTotal": 77.05,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 135.02,
+          "heapUsed": 29.43,
+          "heapTotal": 76.17,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": 0.4,
+        "withMapImmediate": {
+          "rss": 98.41,
+          "heapUsed": 38.8,
+          "heapTotal": 81.91,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 96.41,
+          "heapUsed": 28.58,
+          "heapTotal": 79.44,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": -0.45,
+        "beforeCSV": {
+          "rss": 94.72,
+          "heapUsed": 26.83,
+          "heapTotal": 77.67,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 166.83,
+          "heapUsed": 43.43,
+          "heapTotal": 102.31,
+          "external": 8.26,
+          "arrayBuffers": 12.89
+        },
+        "csvHeapDelta": 16.6,
+        "csvExternalDelta": 6.38,
+        "beforeTXT": {
+          "rss": 173.56,
+          "heapUsed": 26.99,
+          "heapTotal": 95.92,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 183.06,
+          "heapUsed": 46.78,
+          "heapTotal": 102.13,
+          "external": 10.64,
+          "arrayBuffers": 17.63
+        },
+        "txtHeapDelta": 19.79,
+        "txtExternalDelta": 8.76,
+        "afterRelease": {
+          "rss": 182.97,
+          "heapUsed": 27,
+          "heapTotal": 95.67,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    },
+    {
+      "count": 100000,
+      "timeMs": {
+        "constructRecords": 264.95,
+        "aggregateMedian": 27.14,
+        "aggregateSamples": [
+          29.51,
+          14.94,
+          21.61,
+          28.34,
+          27.14
+        ],
+        "sortCopyMedian": 61.59,
+        "sortCopySamples": [
+          91.39,
+          61.59,
+          58.71
+        ],
+        "keywordFilterMedian": 201.62,
+        "keywordFilterSamples": [
+          210.04,
+          201.62,
+          207.12,
+          191.42,
+          177.87
+        ],
+        "categoryFilterMedian": 3.74,
+        "categoryFilterSamples": [
+          3.74,
+          3.14,
+          3.31,
+          4.49,
+          5.17
+        ],
+        "buildDedupeMap": 36.44,
+        "exportCSV": 167.42,
+        "exportTXT": 79.97
+      },
+      "output": {
+        "keywordMatches": 6667,
+        "categoryMatches": 6667,
+        "csvBytes": 13389550,
+        "txtBytes": 18374257
+      },
+      "memoryMB": {
+        "before": {
+          "rss": 182.19,
+          "heapUsed": 4.23,
+          "heapTotal": 68.89,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecordsImmediate": {
+          "rss": 170.33,
+          "heapUsed": 64.26,
+          "heapTotal": 103.28,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterRecords": {
+          "rss": 178.63,
+          "heapUsed": 52.78,
+          "heapTotal": 109.41,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "recordsHeapDelta": 48.55,
+        "withSortedCopyImmediate": {
+          "rss": 171.97,
+          "heapUsed": 61.16,
+          "heapTotal": 119.56,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withSortedCopy": {
+          "rss": 171.17,
+          "heapUsed": 53.55,
+          "heapTotal": 118.17,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "sortedCopyHeapDelta": 0.77,
+        "withMapImmediate": {
+          "rss": 166.28,
+          "heapUsed": 72.46,
+          "heapTotal": 129.8,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "withMap": {
+          "rss": 166.31,
+          "heapUsed": 51.81,
+          "heapTotal": 125.69,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "mapHeapDelta": -0.97,
+        "beforeCSV": {
+          "rss": 162.8,
+          "heapUsed": 48.32,
+          "heapTotal": 122.17,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterCSV": {
+          "rss": 234.95,
+          "heapUsed": 83.68,
+          "heapTotal": 136.44,
+          "external": 14.65,
+          "arrayBuffers": 25.67
+        },
+        "csvHeapDelta": 35.36,
+        "csvExternalDelta": 12.77,
+        "beforeTXT": {
+          "rss": 234.38,
+          "heapUsed": 48.64,
+          "heapTotal": 122.42,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        },
+        "afterTXT": {
+          "rss": 253.41,
+          "heapUsed": 90.93,
+          "heapTotal": 137.81,
+          "external": 19.41,
+          "arrayBuffers": 35.18
+        },
+        "txtHeapDelta": 42.29,
+        "txtExternalDelta": 17.53,
+        "afterRelease": {
+          "rss": 252.52,
+          "heapUsed": 48.64,
+          "heapTotal": 122.17,
+          "external": 1.88,
+          "arrayBuffers": 0.13
+        }
+      }
+    }
+  ]
+}

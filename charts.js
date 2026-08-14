@@ -52,7 +52,10 @@ window.ShopeeCoinAnalytics = (function () {
         latestTimestampMs = latestTimestampMs === null ? timestampMs : Math.max(latestTimestampMs, timestampMs);
       }
 
-      const month = /^\d{4}-\d{2}$/.test(record.monthKey) ? record.monthKey : '其他';
+      const dateStr = record.dateStr;
+      const month = typeof dateStr === 'string' && dateStr.length >= 7 && dateStr[4] === '-'
+        ? dateStr.substring(0, 7)
+        : '其他';
       if (!monthlyMap.has(month)) monthlyMap.set(month, { gainMicros: 0, spendMicros: 0, expiredMicros: 0 });
       const monthData = monthlyMap.get(month);
 
@@ -101,6 +104,21 @@ window.ShopeeCoinAnalytics = (function () {
       };
     }).sort((a, b) => b.total - a.total);
 
+    const sourceCategoryList = categoryList
+      .filter(item => item.gain > 0)
+      .map(item => ({ category: item.category, total: item.gain, count: item.count }))
+      .sort((a, b) => b.total - a.total);
+    const usageCategoryList = categoryList
+      .filter(item => item.spend + item.expired > 0)
+      .map(item => ({
+        category: item.category,
+        total: item.spend + item.expired,
+        spend: item.spend,
+        expired: item.expired,
+        count: item.count
+      }))
+      .sort((a, b) => b.total - a.total);
+
     return {
       totalRecords: (Array.isArray(records) ? records.length : 0),
       validRecords: (Array.isArray(records) ? records.length : 0) - invalidRecords,
@@ -117,7 +135,9 @@ window.ShopeeCoinAnalytics = (function () {
       earliestTimestampMs,
       latestTimestampMs,
       monthlyList,
-      categoryList
+      categoryList,
+      sourceCategoryList,
+      usageCategoryList
     };
   }
 
@@ -170,11 +190,11 @@ window.ShopeeCoinAnalytics = (function () {
     container.innerHTML = svg;
   }
 
-  function renderCategoryDonutChart(container, categoryData) {
+  function renderCategoryDonutChart(container, categoryData, options = {}) {
     if (!container) return;
     const data = (Array.isArray(categoryData) ? categoryData : []).filter(item => Number.isFinite(item.total) && item.total > 0);
     if (data.length === 0) {
-      container.textContent = '尚無分類數據';
+      container.textContent = options.emptyMessage || '尚無分類數據';
       container.classList.add('chart-empty-msg');
       return;
     }
@@ -213,7 +233,7 @@ window.ShopeeCoinAnalytics = (function () {
       });
     }
 
-    svg += `<text x="${cx}" y="${cy - 4}" font-size="12" fill="#888" text-anchor="middle">總活動量</text><text x="${cx}" y="${cy + 16}" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${totalValue.toFixed(2)}</text>`;
+    svg += `<text x="${cx}" y="${cy - 4}" font-size="12" fill="#888" text-anchor="middle">${escapeXML(options.centerLabel || '總活動量')}</text><text x="${cx}" y="${cy + 16}" font-size="14" font-weight="bold" fill="#333" text-anchor="middle">${totalValue.toFixed(2)}</text>`;
     data.slice(0, 6).forEach((item, index) => {
       const percentage = ((item.total / totalValue) * 100).toFixed(1);
       svg += `<g transform="translate(210, ${30 + index * 28})"><rect width="10" height="10" fill="${colors[index % colors.length]}" rx="2"/><text x="16" y="9" font-size="11" fill="#333">${escapeXML(item.category)} (${percentage}%)</text></g>`;
